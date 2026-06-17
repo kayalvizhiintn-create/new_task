@@ -23,7 +23,7 @@ export default function TaskForm() {
       assignedTo: taskToEdit?.assignedTo || '',
       priority: taskToEdit?.priority || 'Medium',
       dueDate: taskToEdit?.dueDate || '',
-      status: taskToEdit?.status || 'Open',
+      status: taskToEdit?.status || 'New Task',
       stage: taskToEdit?.stage || 'Requirements',
       description: taskToEdit?.description || '',
       notes: taskToEdit?.notes || '',
@@ -32,13 +32,20 @@ export default function TaskForm() {
       visitorMobile: taskToEdit?.visitorDetails?.mobile || '',
       visitorCompany: taskToEdit?.visitorDetails?.company || '',
       visitorDate: taskToEdit?.visitorDetails?.date || '',
+      expectedCount: taskToEdit?.visitorDetails?.expectedCount || '',
       extraMembers: taskToEdit?.visitorDetails?.extraMembers || [],
       referrerType: taskToEdit?.referrerDetails?.type || 'Internal',
       referrerName: taskToEdit?.referrerDetails?.name || '',
+      referrerCompany: taskToEdit?.referrerDetails?.company || '',
       referrerRole: taskToEdit?.referrerDetails?.role || '',
       referrerBioId: taskToEdit?.referrerDetails?.bioId || '',
       referrerEmail: taskToEdit?.referrerDetails?.email || '',
-      referrerMobile: taskToEdit?.referrerDetails?.mobile || ''
+      referrerMobile: taskToEdit?.referrerDetails?.mobile || '',
+      meetingPersonName: taskToEdit?.meetingPersonDetails?.name || '',
+      meetingPersonRole: taskToEdit?.meetingPersonDetails?.role || '',
+      meetingPersonBioId: taskToEdit?.meetingPersonDetails?.bioId || '',
+      meetingPersonEmail: taskToEdit?.meetingPersonDetails?.email || '',
+      meetingPersonMobile: taskToEdit?.meetingPersonDetails?.mobile || ''
     }
   });
 
@@ -76,6 +83,7 @@ export default function TaskForm() {
 
     if (data.category === 'Visits') {
       finalData.visitorDetails = {
+        expectedCount: data.expectedCount,
         name: data.visitorName,
         email: data.visitorEmail,
         mobile: data.visitorMobile,
@@ -88,8 +96,16 @@ export default function TaskForm() {
         name: data.referrerName,
         email: data.referrerEmail,
         mobile: data.referrerMobile,
+        company: data.referrerType === 'External' ? data.referrerCompany : undefined,
         role: data.referrerType === 'Internal' ? data.referrerRole : undefined,
-        bioId: data.referrerType === 'Internal' ? data.referrerRole : undefined
+        bioId: data.referrerType === 'Internal' ? data.referrerBioId : undefined
+      };
+      finalData.meetingPersonDetails = {
+        name: data.meetingPersonName,
+        role: data.meetingPersonRole,
+        bioId: data.meetingPersonBioId,
+        email: data.meetingPersonEmail,
+        mobile: data.meetingPersonMobile
       };
     }
 
@@ -224,31 +240,157 @@ export default function TaskForm() {
 
         {selectedCategory === 'Visits' && (
           <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
-            <SectionHeader icon={Briefcase} title="Visitor Details" subtitle="Information about the visitor." />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
-              <div>
-                <label className={labelClasses}>Visitor Name <span className="text-rose-500">*</span></label>
-                <input {...register('visitorName', { required: 'Visitor name is required' })} className={cn(inputClasses, errors.visitorName && "border-rose-500")} />
-              </div>
-              <div>
-                <label className={labelClasses}>Visitor Email <span className="text-rose-500">*</span></label>
-                <input type="email" {...register('visitorEmail', { required: 'Visitor email is required' })} className={cn(inputClasses, errors.visitorEmail && "border-rose-500")} />
-              </div>
-              <div>
-                <label className={labelClasses}>Visitor Mobile <span className="text-rose-500">*</span></label>
-                <input {...register('visitorMobile', { required: 'Visitor mobile is required' })} className={cn(inputClasses, errors.visitorMobile && "border-rose-500")} />
-              </div>
-              <div>
-                <label className={labelClasses}>Visitor Company <span className="text-rose-500">*</span></label>
-                <input {...register('visitorCompany', { required: 'Visitor company is required' })} className={cn(inputClasses, errors.visitorCompany && "border-rose-500")} />
-              </div>
-              <div>
-                <label className={labelClasses}>Visit Date <span className="text-rose-500">*</span></label>
-                <input type="date" {...register('visitorDate', { required: 'Visit date is required' })} className={cn(inputClasses, "cursor-pointer", errors.visitorDate && "border-rose-500")} />
+            
+            {/* 1. Reference & Meeting Details */}
+            <div>
+              <SectionHeader icon={AlignLeft} title="Reference & Meeting Details" subtitle="Who referred them, and who are they meeting?" />
+              
+              <div className="flex flex-col lg:flex-row gap-8">
+                {/* Left Side: Referrer */}
+                <div className="flex-1 space-y-6">
+                  <h3 className={cn("text-lg font-bold tracking-tight border-b pb-2", isDarkMode ? "text-slate-200 border-slate-700" : "text-slate-800 border-slate-200")}>Referrer Details</h3>
+                  <div>
+                    <label className={labelClasses}>Internal or External?</label>
+                    <select {...register('referrerType')} className={cn(inputClasses, "appearance-none cursor-pointer w-full")}>
+                      <option value="Internal">Internal Employee</option>
+                      <option value="External">External Person</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className={labelClasses}>Referrer Name <span className="text-rose-500">*</span></label>
+                    {referrerTypeVal === 'Internal' ? (
+                      <select 
+                        {...register('referrerName', { required: 'Name is required' })} 
+                        className={cn(inputClasses, "appearance-none cursor-pointer", errors.referrerName && "border-rose-500")}
+                        onChange={(e) => {
+                          const emp = employees.find(emp => emp.name === e.target.value);
+                          if (emp) {
+                             setValue('referrerRole', emp.role);
+                             setValue('referrerBioId', emp.bioId);
+                             setValue('referrerEmail', emp.email);
+                             setValue('referrerMobile', emp.mobile);
+                          }
+                        }}
+                      >
+                        <option value="">Select Employee...</option>
+                        {employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
+                      </select>
+                    ) : (
+                      <input {...register('referrerName', { required: 'Name is required' })} className={cn(inputClasses, errors.referrerName && "border-rose-500")} placeholder="Enter Name" />
+                    )}
+                  </div>
+
+                  {referrerTypeVal === 'Internal' ? (
+                    <>
+                      <div>
+                        <label className={labelClasses}>Role <span className="text-rose-500">*</span></label>
+                        <input {...register('referrerRole', { required: 'Role is required' })} className={cn(inputClasses, errors.referrerRole && "border-rose-500")} />
+                      </div>
+                      <div>
+                        <label className={labelClasses}>Bio ID <span className="text-rose-500">*</span></label>
+                        <input {...register('referrerBioId', { required: 'Bio ID is required' })} className={cn(inputClasses, errors.referrerBioId && "border-rose-500")} />
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label className={labelClasses}>Company Name</label>
+                      <input {...register('referrerCompany')} className={cn(inputClasses)} placeholder="Company Name" />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className={labelClasses}>Email</label>
+                    <input type="email" {...register('referrerEmail')} className={cn(inputClasses)} placeholder="Email (Optional)" />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Mobile <span className="text-rose-500">*</span></label>
+                    <input {...register('referrerMobile', { required: 'Mobile is required' })} className={cn(inputClasses, errors.referrerMobile && "border-rose-500")} />
+                  </div>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className={cn("hidden lg:block w-px rounded-full", isDarkMode ? "bg-slate-700/50" : "bg-slate-200")}></div>
+                {/* Horizontal Divider for mobile */}
+                <div className={cn("block lg:hidden h-px w-full rounded-full my-4", isDarkMode ? "bg-slate-700/50" : "bg-slate-200")}></div>
+
+                {/* Right Side: Meeting Person */}
+                <div className="flex-1 space-y-6">
+                  <h3 className={cn("text-lg font-bold tracking-tight border-b pb-2", isDarkMode ? "text-slate-200 border-slate-700" : "text-slate-800 border-slate-200")}>Referred To (Meeting Person)</h3>
+                  
+                  <div>
+                    <label className={labelClasses}>Meeting With <span className="text-rose-500">*</span></label>
+                    <select 
+                      {...register('meetingPersonName', { required: 'Meeting person is required' })} 
+                      className={cn(inputClasses, "appearance-none cursor-pointer", errors.meetingPersonName && "border-rose-500")}
+                      onChange={(e) => {
+                        const emp = employees.find(emp => emp.name === e.target.value);
+                        if (emp) {
+                           setValue('meetingPersonRole', emp.role);
+                           setValue('meetingPersonBioId', emp.bioId);
+                           setValue('meetingPersonEmail', emp.email);
+                           setValue('meetingPersonMobile', emp.mobile);
+                        }
+                      }}
+                    >
+                      <option value="">Select Employee...</option>
+                      {employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className={labelClasses}>Role <span className="text-rose-500">*</span></label>
+                    <input {...register('meetingPersonRole', { required: 'Role is required' })} className={cn(inputClasses, errors.meetingPersonRole && "border-rose-500")} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Bio ID <span className="text-rose-500">*</span></label>
+                    <input {...register('meetingPersonBioId', { required: 'Bio ID is required' })} className={cn(inputClasses, errors.meetingPersonBioId && "border-rose-500")} />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Email</label>
+                    <input type="email" {...register('meetingPersonEmail')} className={cn(inputClasses)} placeholder="Email (Optional)" />
+                  </div>
+                  <div>
+                    <label className={labelClasses}>Mobile <span className="text-rose-500">*</span></label>
+                    <input {...register('meetingPersonMobile', { required: 'Mobile is required' })} className={cn(inputClasses, errors.meetingPersonMobile && "border-rose-500")} />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="mt-8 border-t border-slate-200 dark:border-slate-700/50 pt-8 mb-8">
+            {/* 2. Visitor Details */}
+            <div className="mt-8 border-t border-slate-200 dark:border-slate-700/50 pt-8">
+              <SectionHeader icon={Briefcase} title="Visitor Details" subtitle="Information about the visitor." />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+                <div>
+                  <label className={labelClasses}>Expected Persons Count</label>
+                  <input type="number" min="1" {...register('expectedCount')} className={cn(inputClasses)} placeholder="e.g. 5" />
+                </div>
+                <div>
+                  <label className={labelClasses}>Visitor Name</label>
+                  <input {...register('visitorName')} className={cn(inputClasses)} placeholder="Name (Optional if unknown)" />
+                </div>
+                <div>
+                  <label className={labelClasses}>Visitor Email</label>
+                  <input type="email" {...register('visitorEmail')} className={cn(inputClasses)} placeholder="Email (Optional)" />
+                </div>
+                <div>
+                  <label className={labelClasses}>Visitor Mobile</label>
+                  <input {...register('visitorMobile')} className={cn(inputClasses)} placeholder="Mobile (Optional)" />
+                </div>
+                <div>
+                  <label className={labelClasses}>Visitor Company</label>
+                  <input {...register('visitorCompany')} className={cn(inputClasses)} placeholder="Company (Optional)" />
+                </div>
+                <div>
+                  <label className={labelClasses}>Visit Date <span className="text-rose-500">*</span></label>
+                  <input type="date" {...register('visitorDate', { required: 'Visit date is required' })} className={cn(inputClasses, "cursor-pointer", errors.visitorDate && "border-rose-500")} />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Extra Members */}
+            <div className="mt-8 border-t border-slate-200 dark:border-slate-700/50 pt-8">
               <div className="flex justify-between items-center mb-6">
                 <h3 className={cn("text-lg font-bold tracking-tight", isDarkMode ? "text-slate-200" : "text-slate-800")}>Extra Members</h3>
                 <button
@@ -310,52 +452,6 @@ export default function TaskForm() {
                 {extraMemberFields.length === 0 && (
                   <p className={cn("text-sm font-medium italic text-center py-4", isDarkMode ? "text-slate-500" : "text-slate-400")}>No extra members added.</p>
                 )}
-              </div>
-            </div>
-
-            <SectionHeader icon={AlignLeft} title={selectedSubCategory === 'Internal' ? 'Referred By' : 'Referred To'} subtitle="Details of the person referring/referred to." />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="md:col-span-2">
-                <label className={labelClasses}>Is this person internal or external?</label>
-                <select {...register('referrerType')} className={cn(inputClasses, "appearance-none cursor-pointer w-full md:w-1/2")}>
-                  <option value="Internal">Internal Employee</option>
-                  <option value="External">External Person</option>
-                </select>
-              </div>
-
-              {referrerTypeVal === 'Internal' && (
-                <>
-                  <div>
-                    <label className={labelClasses}>Name <span className="text-rose-500">*</span></label>
-                    <input {...register('referrerName', { required: 'Name is required' })} className={cn(inputClasses, errors.referrerName && "border-rose-500")} />
-                  </div>
-                  <div>
-                    <label className={labelClasses}>Role <span className="text-rose-500">*</span></label>
-                    <input {...register('referrerRole', { required: 'Role is required' })} className={cn(inputClasses, errors.referrerRole && "border-rose-500")} />
-                  </div>
-                  <div>
-                    <label className={labelClasses}>Bio ID <span className="text-rose-500">*</span></label>
-                    <input {...register('referrerBioId', { required: 'Bio ID is required' })} className={cn(inputClasses, errors.referrerBioId && "border-rose-500")} />
-                  </div>
-                </>
-              )}
-
-              {referrerTypeVal === 'External' && (
-                <>
-                  <div className="md:col-span-2">
-                    <label className={labelClasses}>Name <span className="text-rose-500">*</span></label>
-                    <input {...register('referrerName', { required: 'Name is required' })} className={cn(inputClasses, errors.referrerName && "border-rose-500")} />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className={labelClasses}>Email <span className="text-rose-500">*</span></label>
-                <input type="email" {...register('referrerEmail', { required: 'Email is required' })} className={cn(inputClasses, errors.referrerEmail && "border-rose-500")} />
-              </div>
-              <div>
-                <label className={labelClasses}>Mobile <span className="text-rose-500">*</span></label>
-                <input {...register('referrerMobile', { required: 'Mobile is required' })} className={cn(inputClasses, errors.referrerMobile && "border-rose-500")} />
               </div>
             </div>
           </div>

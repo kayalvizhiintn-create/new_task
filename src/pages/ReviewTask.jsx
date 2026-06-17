@@ -30,7 +30,7 @@ export default function ReviewTask() {
     // Auto change status to Open upon adding assignee
     updateTask(id, {
       assignedTo: assignee,
-      status: 'Open'
+      status: 'New Task'
     });
     
     navigate('/tasks');
@@ -101,6 +101,46 @@ export default function ReviewTask() {
               </div>
             </div>
           </div>
+
+          {taskToEdit.category === 'Visits' && (
+            <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
+              <SectionHeader icon={Briefcase} title="Visitor & Meeting Details" subtitle="Reference, meeting person, and expected visitors." />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h3 className={cn("font-bold border-b pb-2", isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700")}>Referrer Details</h3>
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Type</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.type}</div></div>
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.name}</div></div>
+                  {taskToEdit.referrerDetails?.type === 'External' ? (
+                    <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Company</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.company || '-'}</div></div>
+                  ) : (
+                    <>
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Role</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.role || '-'}</div></div>
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Bio ID</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.bioId || '-'}</div></div>
+                    </>
+                  )}
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Mobile</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.mobile || '-'}</div></div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className={cn("font-bold border-b pb-2", isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700")}>Referred To (Meeting Person)</h3>
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.meetingPersonDetails?.name || '-'}</div></div>
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Role</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.meetingPersonDetails?.role || '-'}</div></div>
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Mobile</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.meetingPersonDetails?.mobile || '-'}</div></div>
+                </div>
+              </div>
+
+              <div className="mt-8 border-t pt-8 border-slate-200 dark:border-slate-700/50">
+                <h3 className={cn("font-bold mb-4", isDarkMode ? "text-slate-300" : "text-slate-700")}>Visitor Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Expected Count</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.expectedCount || '-'}</div></div>
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visit Date</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.date || '-'}</div></div>
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visitor Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.name || '-'}</div></div>
+                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visitor Mobile</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.mobile || '-'}</div></div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
             <SectionHeader icon={Calendar} title="Scheduling & Status" subtitle="Priority, deadlines and progress tracking." />

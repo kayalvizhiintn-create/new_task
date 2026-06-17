@@ -42,7 +42,7 @@ export default function DashboardLayout() {
       {/* Premium Dark Sidebar */}
       <aside className={cn("fixed md:relative flex-shrink-0 transition-all duration-300 z-50 flex flex-col h-full", 
         isDarkMode ? "bg-[#0F172A] border-r border-slate-800" : "bg-slate-900 text-slate-100 border-r border-slate-800",
-        isSidebarOpen ? "w-72 translate-x-0" : "w-20 -translate-x-full md:translate-x-0"
+        isSidebarOpen ? "w-64 translate-x-0" : "w-20 -translate-x-full md:translate-x-0"
       )}>
         <div className={cn("h-20 flex items-center justify-between px-6 border-b border-slate-800/50")}>
           <div className="flex items-center gap-3 overflow-hidden">
@@ -165,7 +165,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Notification Bell */}
-        <div className="absolute top-4 right-4 md:top-8 md:right-8 z-50">
+        <div className="absolute top-4 right-4 md:top-6 md:right-8 z-50">
           <div className="relative">
             <button 
               onClick={() => setShowNotifications(!showNotifications)}
@@ -218,7 +218,7 @@ export default function DashboardLayout() {
         </div>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pt-20 md:pt-24 relative z-0">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pt-20 md:pt-6 relative z-0">
           <Outlet />
         </main>
       </div>

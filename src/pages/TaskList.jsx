@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Link, useSearchParams } from 'react-router-dom';
 import { cn } from '../utils/cn';
-import { Search, Filter, Download, Plus, Edit, Eye, Trash2, ArrowLeft, GitMerge, Layers } from 'lucide-react';
+import { Search, Filter, Download, Plus, Edit, Eye, Trash2, ArrowLeft, GitMerge, Layers, Users } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import ProjectFlow from '../components/ProjectFlow';
 
@@ -10,7 +10,7 @@ const getStatusColor = (status, isDarkMode) => {
   switch(status) {
     case 'Completed': return isDarkMode ? 'text-emerald-400' : 'text-emerald-600';
     case 'In Progress': return isDarkMode ? 'text-blue-400' : 'text-blue-600';
-    case 'Open': return isDarkMode ? 'text-amber-400' : 'text-amber-600';
+    case 'New Task': return isDarkMode ? 'text-amber-400' : 'text-amber-600';
     case 'Pending': return isDarkMode ? 'text-purple-400' : 'text-purple-600';
     case 'On Hold': return isDarkMode ? 'text-slate-400' : 'text-slate-600';
     case 'Cancelled': return isDarkMode ? 'text-rose-400' : 'text-rose-600';
@@ -258,6 +258,13 @@ export default function TaskList() {
                           <Layers className="w-4 h-4" />
                         </Link>
                       )}
+                      <Link 
+                        to={`/teams?project=${encodeURIComponent(task.title)}`}
+                        className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-indigo-500/20 text-indigo-400" : "hover:bg-indigo-50 text-indigo-600")}
+                        title="Create Team"
+                      >
+                        <Users className="w-4 h-4" />
+                      </Link>
                       <button 
                         onClick={() => setFlowTask(task)}
                         className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-emerald-500/20 text-emerald-400" : "hover:bg-emerald-50 text-emerald-600")}

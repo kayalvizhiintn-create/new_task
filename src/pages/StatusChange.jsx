@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { Activity, Clock } from 'lucide-react';
-import ReauthModal from '../components/ReauthModal';
+import { Activity, Clock, AlertTriangle, X } from 'lucide-react';
 
 export default function StatusChange() {
   const { tasks, employees, updateTask, isDarkMode, statuses } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState(null);
+  const [reason, setReason] = useState('');
+  const [reasonError, setReasonError] = useState(false);
 
   const handleStatusChange = (taskId, newStatus) => {
     const task = tasks.find(t => t.id === taskId);
@@ -18,23 +19,34 @@ export default function StatusChange() {
   };
 
   const confirmStatusChange = () => {
+    if (!reason.trim()) {
+      setReasonError(true);
+      return;
+    }
     if (pendingUpdate) {
-      updateTask(pendingUpdate.taskId, { status: pendingUpdate.newStatus });
+      updateTask(pendingUpdate.taskId, { 
+        status: pendingUpdate.newStatus,
+        statusReason: reason.trim()
+      });
     }
     setModalOpen(false);
     setPendingUpdate(null);
+    setReason('');
+    setReasonError(false);
   };
 
   const cancelStatusChange = () => {
     setModalOpen(false);
     setPendingUpdate(null);
+    setReason('');
+    setReasonError(false);
   };
 
   const sortedTasks = [...tasks].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const getStatusColor = (status) => {
     switch(status) {
-      case 'Open': return 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-200 dark:border-amber-500/20';
+      case 'New Task': return 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border-amber-200 dark:border-amber-500/20';
       case 'Pending': return 'bg-slate-100 text-slate-700 dark:bg-slate-500/10 dark:text-slate-400 border-slate-200 dark:border-slate-500/20';
       case 'In Progress': return 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20';
       case 'On Hold': return 'bg-gray-100 text-gray-700 dark:bg-gray-500/10 dark:text-gray-400 border-gray-200 dark:border-gray-500/20';
@@ -124,12 +136,67 @@ export default function StatusChange() {
         </div>
       </div>
 
-      <ReauthModal 
-        isOpen={modalOpen} 
-        onClose={cancelStatusChange} 
-        onSuccess={confirmStatusChange} 
-        actionDescription={`change status to "${pendingUpdate?.newStatus}"`} 
-      />
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className={cn("w-full max-w-md rounded-3xl shadow-2xl p-6 md:p-8 relative", 
+            isDarkMode ? "bg-slate-800 border border-slate-700" : "bg-white"
+          )}>
+            <div className="absolute top-4 right-4">
+              <button onClick={cancelStatusChange} className={cn("p-2 rounded-full transition-colors", isDarkMode ? "hover:bg-slate-700 text-slate-400" : "hover:bg-slate-100 text-slate-500")}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center mb-6">
+                <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-500" />
+              </div>
+              
+              <h2 className={cn("text-2xl font-bold mb-2", isDarkMode ? "text-white" : "text-slate-900")}>Confirm Status Change</h2>
+              <p className={cn("text-sm mb-6", isDarkMode ? "text-slate-300" : "text-slate-600")}>
+                Are you sure you want to change the status to <span className="font-bold">"{pendingUpdate?.newStatus}"</span>?
+              </p>
+              
+              <div className="w-full text-left mb-6">
+                <label className={cn("block text-sm font-bold mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>
+                  Reason for Change <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => {
+                    setReason(e.target.value);
+                    if (e.target.value.trim()) setReasonError(false);
+                  }}
+                  className={cn("w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none",
+                    isDarkMode ? "bg-slate-900/50 border-slate-700 text-white placeholder-slate-500" : "bg-white border-slate-300 text-slate-900 placeholder-slate-400",
+                    reasonError ? "border-rose-500 focus:border-rose-500 ring-rose-500/20" : "focus:border-blue-500"
+                  )}
+                  placeholder="Please provide a valid reason..."
+                  rows={3}
+                ></textarea>
+                {reasonError && <p className="text-rose-500 text-xs font-bold mt-2">Reason is required.</p>}
+              </div>
+              
+              <div className="flex gap-3 w-full">
+                <button 
+                  onClick={cancelStatusChange}
+                  className={cn("flex-1 py-3 rounded-xl font-bold transition-colors", 
+                    isDarkMode ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  )}
+                >
+                  No, Cancel
+                </button>
+                <button 
+                  onClick={confirmStatusChange}
+                  className="flex-1 py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                >
+                  Yes, Update
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

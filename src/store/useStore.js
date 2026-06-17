@@ -28,7 +28,7 @@ const INITIAL_TASKS = [
     assignedTo: 'Karthik',
     priority: 'Critical',
     dueDate: '2026-06-16',
-    status: 'Open',
+    status: 'New Task',
     description: 'Create responsive landing page for new campaign.',
     createdAt: '2026-06-11T14:30:00Z',
   },
@@ -70,7 +70,7 @@ const INITIAL_TASKS = [
     assignedTo: 'Arun',
     priority: 'High',
     dueDate: '2026-06-15',
-    status: 'Open', // Changed from Overdue for valid status checking
+    status: 'New Task', // Changed from Overdue for valid status checking
     description: 'Set up pipelines and custom fields in Zoho CRM.',
     createdAt: '2026-06-14T11:20:00Z',
   }
@@ -110,10 +110,10 @@ const INITIAL_CATEGORIES = {
 };
 
 const INITIAL_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-const INITIAL_STATUSES = ['Open', 'Open for review', 'In Progress', 'Pending', 'On-hold', 'Completed', 'Cancelled'];
+const INITIAL_STATUSES = ['New Task', 'Open for review', 'In Progress', 'Pending', 'On-hold', 'Completed', 'Cancelled'];
 const INITIAL_ROLES = ['Admin', 'Manager', 'Developer', 'Support', 'Sales', 'Operations'];
 const INITIAL_PLACES = ['Onsite', 'Remote'];
-const INITIAL_DASHBOARD_METRICS = ['Open for review', 'In Progress', 'On-hold', 'Overdue', 'Today created', "Today's task", 'Total'];
+export const INITIAL_DASHBOARD_METRICS = ['Open for review', 'New Task', 'In Progress', 'On-hold', 'Overdue', 'Today created', "Today's task", 'Total'];
 export const INITIAL_STAGES = ['Requirements', 'Design', 'Development', 'Testing', 'Deployment', 'Maintenance'];
 
 const INITIAL_TEAMS = [
@@ -229,7 +229,7 @@ export const useStore = create(
                 action: 'Status Changed',
                 timestamp: new Date().toISOString(),
                 user,
-                details: `Status changed from ${t.status} to ${updatedData.status}`
+                details: `Status changed from ${t.status} to ${updatedData.status}${updatedData.statusReason ? `\nReason: ${updatedData.statusReason}` : ''}`
               };
             } else if (updatedData.assignedTo && updatedData.assignedTo !== t.assignedTo) {
               historyEntry = {

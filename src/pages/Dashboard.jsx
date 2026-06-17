@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store/useStore';
+import { useStore, INITIAL_DASHBOARD_METRICS } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { Briefcase, CheckCircle2, Clock, AlertCircle, TrendingUp, FolderGit2, RefreshCcw, Hourglass, PauseCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -9,19 +9,19 @@ const StatCard = ({ title, value, icon: Icon, gradientFrom, gradientTo, onClick 
   return (
     <div 
       onClick={onClick}
-      className={cn("relative overflow-hidden p-6 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group", 
+      className={cn("relative overflow-hidden p-4 md:p-5 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group", 
       isDarkMode ? "bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60" : "bg-white border-slate-100 shadow-sm hover:bg-slate-50",
       onClick && "cursor-pointer"
     )}>
       <div className={cn("absolute -right-10 -top-10 w-32 h-32 rounded-full opacity-20 blur-2xl group-hover:opacity-40 transition-opacity", `bg-gradient-to-br ${gradientFrom} ${gradientTo}`)} />
       
-      <div className="flex items-start justify-between relative z-10">
-        <div>
-          <p className={cn("text-sm font-semibold tracking-wide mb-2", isDarkMode ? "text-slate-400" : "text-slate-500")}>{title}</p>
-          <h3 className={cn("text-4xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>{value}</h3>
+      <div className="flex items-start justify-between relative z-10 gap-2">
+        <div className="min-w-0">
+          <p className={cn("text-xs xl:text-[11px] 2xl:text-xs font-semibold tracking-wide mb-1.5 truncate", isDarkMode ? "text-slate-400" : "text-slate-500")} title={title}>{title}</p>
+          <h3 className={cn("text-2xl md:text-3xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>{value}</h3>
         </div>
-        <div className={cn("p-4 rounded-2xl bg-gradient-to-br text-white shadow-lg", gradientFrom, gradientTo)}>
-          <Icon className="w-6 h-6" />
+        <div className={cn("p-2.5 rounded-2xl bg-gradient-to-br text-white shadow-lg flex-shrink-0", gradientFrom, gradientTo)}>
+          <Icon className="w-5 h-5" />
         </div>
       </div>
       <div className="mt-4 flex items-center text-xs font-medium text-emerald-500">
@@ -33,7 +33,7 @@ const StatCard = ({ title, value, icon: Icon, gradientFrom, gradientTo, onClick 
 };
 
 export default function Dashboard() {
-  const { tasks, isDarkMode, categories, dashboardMetrics } = useStore();
+  const { tasks, isDarkMode, categories } = useStore();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -206,8 +206,9 @@ export default function Dashboard() {
         </div> */}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 lg:gap-4">
         <StatCard title="Open for review" value={openForReviewTasks} icon={AlertCircle} gradientFrom="from-amber-400" gradientTo="to-orange-500" onClick={() => navigate('/tasks?status=Open for review')} />
+        <StatCard title="New Task" value={tasks.filter(t => t.status === 'New Task').length} icon={RefreshCcw} gradientFrom="from-yellow-400" gradientTo="to-amber-500" onClick={() => navigate('/tasks?status=New Task')} />
         <StatCard title="In Progress" value={inProgressTasks} icon={RefreshCcw} gradientFrom="from-blue-400" gradientTo="to-indigo-500" onClick={() => navigate('/tasks?status=In Progress')} />
         <StatCard title="On-hold" value={onHoldTasks} icon={PauseCircle} gradientFrom="from-slate-400" gradientTo="to-gray-500" onClick={() => navigate('/tasks?status=On-hold')} />
         <StatCard title="Overdue" value={overdueTasks} icon={Clock} gradientFrom="from-rose-400" gradientTo="to-red-500" onClick={() => navigate('/tasks?status=All')} />
@@ -228,7 +229,7 @@ export default function Dashboard() {
                   <thead className={cn("border-b", isDarkMode ? "bg-slate-900/50 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
                     <tr>
                       <th className={cn("px-4 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>Category</th>
-                      {dashboardMetrics?.map(metric => (
+                      {INITIAL_DASHBOARD_METRICS.map(metric => (
                         <th key={metric} className={cn("px-3 py-4 font-bold uppercase tracking-wider text-[10px] md:text-xs text-center", isDarkMode ? "text-slate-400" : "text-slate-500")}>{metric}</th>
                       ))}
                     </tr>
@@ -241,7 +242,7 @@ export default function Dashboard() {
                           idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/20" : "bg-slate-50/50")
                         )}>
                           <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-300 text-xs md:text-sm">{cat}</td>
-                          {dashboardMetrics?.map(metricLabel => {
+                          {INITIAL_DASHBOARD_METRICS.map(metricLabel => {
                             let filterFn;
                             if (metricLabel === 'Open for review') {
                               filterFn = (t) => t.status === 'Open for review';
@@ -252,20 +253,20 @@ export default function Dashboard() {
                             } else if (metricLabel === "Today's task") {
                               filterFn = (t) => t.dueDate === today;
                             } else if (metricLabel === 'Total') {
-                              filterFn = () => true;
+                              filterFn = (t) => ['Open for review', 'New Task', 'In Progress', 'On-hold'].includes(t.status) || (t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status));
                             } else {
-                              filterFn = (t) => t.status === metricLabel || t.status === metricLabel.replace('Progress', 'In Progress');
+                              filterFn = (t) => t.status === metricLabel;
                             }
 
                             const count = tasks.filter(t => t.category === cat && filterFn(t)).length;
                             return (
-                              <td key={metricLabel} className="px-3 py-4 font-semibold text-slate-600 dark:text-slate-400 text-center">
+                              <td key={metricLabel} className="px-3 py-4 font-semibold text-center">
                                 {count > 0 ? (
-                                  <span className={cn("px-2 py-1 rounded-lg text-xs font-bold", 
+                                  <button onClick={() => navigate(`/tasks?category=${encodeURIComponent(cat)}${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `&status=${encodeURIComponent(metricLabel)}` : ''}`)} className={cn("px-3 py-1.5 rounded-lg text-sm md:text-base font-bold cursor-pointer transition-colors hover:bg-blue-100 dark:hover:bg-blue-500/20", 
                                     isDarkMode ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-600"
-                                  )}>{count}</span>
+                                  )}>{count}</button>
                                 ) : (
-                                  <span className="text-slate-400 dark:text-slate-500 font-bold text-xs">0</span>
+                                  <span className="text-slate-400 dark:text-slate-500 font-bold text-sm md:text-base">0</span>
                                 )}
                               </td>
                             );
@@ -274,6 +275,40 @@ export default function Dashboard() {
                       );
                     })}
                   </tbody>
+                  <tfoot className={cn("border-t font-extrabold", isDarkMode ? "bg-slate-900/80 border-slate-700/50" : "bg-slate-100 border-slate-200")}>
+                    <tr>
+                      <td className="px-4 py-4 text-slate-900 dark:text-slate-100 text-xs md:text-sm">TOTAL</td>
+                      {INITIAL_DASHBOARD_METRICS.map(metricLabel => {
+                        let filterFn;
+                        if (metricLabel === 'Open for review') {
+                          filterFn = (t) => t.status === 'Open for review';
+                        } else if (metricLabel === 'Overdue') {
+                          filterFn = (t) => t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status);
+                        } else if (metricLabel === 'Today created') {
+                          filterFn = (t) => t.createdAt && t.createdAt.startsWith(today);
+                        } else if (metricLabel === "Today's task") {
+                          filterFn = (t) => t.dueDate === today;
+                        } else if (metricLabel === 'Total') {
+                          filterFn = (t) => ['Open for review', 'New Task', 'In Progress', 'On-hold'].includes(t.status) || (t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status));
+                        } else {
+                          filterFn = (t) => t.status === metricLabel;
+                        }
+                        
+                        const count = tasks.filter(t => filterFn(t)).length;
+                        return (
+                          <td key={metricLabel} className="px-3 py-4 text-center">
+                            {count > 0 ? (
+                              <button onClick={() => navigate(`/tasks?${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `status=${encodeURIComponent(metricLabel)}` : ''}`)} className={cn("px-3 py-1.5 rounded-lg text-sm md:text-base font-extrabold cursor-pointer transition-colors hover:bg-slate-200 dark:hover:bg-slate-700", 
+                                isDarkMode ? "text-slate-100 bg-slate-800" : "text-slate-900 bg-slate-100"
+                              )}>{count}</button>
+                            ) : (
+                              <span className="text-slate-400 dark:text-slate-500 font-bold text-sm md:text-base">0</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>

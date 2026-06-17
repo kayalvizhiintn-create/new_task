@@ -1,13 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { Users, Plus, UserCircle, Crown, Trash2, AlertTriangle, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import DiscussionForum from '../components/DiscussionForum';
 
 export default function TeamManagement() {
   const { isDarkMode, teams, employees, tasks, createTeam, deleteTeam } = useStore();
+  const [searchParams] = useSearchParams();
   
   const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamProject, setNewTeamProject] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    const projectFromUrl = searchParams.get('project');
+    if (projectFromUrl) {
+      setNewTeamProject(projectFromUrl);
+      setShowCreateModal(true);
+    }
+  }, [searchParams]);
+
   const [newTeamLead, setNewTeamLead] = useState('');
   const [newTeamMembers, setNewTeamMembers] = useState([]);
   
@@ -16,23 +29,25 @@ export default function TeamManagement() {
 
   const handleCreateTeam = (e) => {
     e.preventDefault();
-    if (!newTeamName.trim() || !newTeamLead || newTeamMembers.length === 0) {
-      setShowErrorPopup({ show: true, message: "Please provide a project name, lead, and at least one member." });
+    if (!newTeamName.trim() || !newTeamProject.trim() || !newTeamLead || newTeamMembers.length === 0) {
+      setShowErrorPopup({ show: true, message: "Please provide a team name, project name, lead, and at least one member." });
       return;
     }
 
-    if (teams.some(t => t.name === newTeamName)) {
-      setShowErrorPopup({ show: true, message: "You have already created a team for this project!" });
+    if (teams.some(t => t.projectName === newTeamProject && t.name === newTeamName)) {
+      setShowErrorPopup({ show: true, message: "You have already created a team with this name for this project!" });
       return;
     }
     
     createTeam({
       name: newTeamName,
+      projectName: newTeamProject,
       lead: newTeamLead,
       members: newTeamMembers
     });
     
     setNewTeamName('');
+    setNewTeamProject('');
     setNewTeamLead('');
     setNewTeamMembers([]);
   };
@@ -108,17 +123,29 @@ export default function TeamManagement() {
               <h2 className={cn("text-lg font-bold", isDarkMode ? "text-white" : "text-slate-900")}>Create New Team</h2>
             </div>
             
-            <form onSubmit={handleCreateTeam} className="space-y-4">
+            <form onSubmit={handleCreateTeam} className="space-y-6">
+              
               <div>
-                <label className={labelClasses}>Project Name</label>
-                <select 
+                <label className={cn("block text-sm font-bold mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Team Name <span className="text-rose-500">*</span></label>
+                <input 
+                  type="text" 
                   value={newTeamName}
                   onChange={(e) => setNewTeamName(e.target.value)}
-                  className={cn(inputClasses, "appearance-none cursor-pointer")}
+                  className={inputClasses}
+                  placeholder="e.g. Frontend Ninjas, Alpha Team..."
+                />
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-bold mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Select Project <span className="text-rose-500">*</span></label>
+                <select 
+                  value={newTeamProject}
+                  onChange={(e) => setNewTeamProject(e.target.value)}
+                  className={inputClasses}
                 >
-                  <option value="">Select Project</option>
-                  {tasks.map(task => (
-                    <option key={task.id} value={task.title}>{task.title}</option>
+                  <option value="">Select a project...</option>
+                  {tasks.map(t => (
+                    <option key={t.id} value={t.title}>{t.title} ({t.id})</option>
                   ))}
                 </select>
               </div>
