@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { ArrowLeft, Save, Briefcase, Calendar, AlignLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Briefcase, Calendar, AlignLeft, Plus, Trash2, AlertCircle } from 'lucide-react';
 
 export default function TaskForm() {
   const { id } = useParams();
@@ -24,12 +24,14 @@ export default function TaskForm() {
       priority: taskToEdit?.priority || 'Medium',
       dueDate: taskToEdit?.dueDate || '',
       status: taskToEdit?.status || 'Open',
+      stage: taskToEdit?.stage || 'Requirements',
       description: taskToEdit?.description || '',
       notes: taskToEdit?.notes || '',
       visitorName: taskToEdit?.visitorDetails?.name || '',
       visitorEmail: taskToEdit?.visitorDetails?.email || '',
       visitorMobile: taskToEdit?.visitorDetails?.mobile || '',
       visitorCompany: taskToEdit?.visitorDetails?.company || '',
+      visitorDate: taskToEdit?.visitorDetails?.date || '',
       extraMembers: taskToEdit?.visitorDetails?.extraMembers || [],
       referrerType: taskToEdit?.referrerDetails?.type || 'Internal',
       referrerName: taskToEdit?.referrerDetails?.name || '',
@@ -67,6 +69,7 @@ export default function TaskForm() {
       priority: data.priority,
       dueDate: data.dueDate,
       status: data.reviewTo && !isEditMode ? 'Open for review' : data.status,
+      stage: (data.category === 'Development' && data.subCategory === 'Software Development') ? data.stage : undefined,
       description: data.description,
       notes: data.notes
     };
@@ -77,6 +80,7 @@ export default function TaskForm() {
         email: data.visitorEmail,
         mobile: data.visitorMobile,
         company: data.visitorCompany,
+        date: data.visitorDate,
         extraMembers: data.extraMembers || []
       };
       finalData.referrerDetails = {
@@ -221,7 +225,7 @@ export default function TaskForm() {
         {selectedCategory === 'Visits' && (
           <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
             <SectionHeader icon={Briefcase} title="Visitor Details" subtitle="Information about the visitor." />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
               <div>
                 <label className={labelClasses}>Visitor Name <span className="text-rose-500">*</span></label>
                 <input {...register('visitorName', { required: 'Visitor name is required' })} className={cn(inputClasses, errors.visitorName && "border-rose-500")} />
@@ -238,6 +242,10 @@ export default function TaskForm() {
                 <label className={labelClasses}>Visitor Company <span className="text-rose-500">*</span></label>
                 <input {...register('visitorCompany', { required: 'Visitor company is required' })} className={cn(inputClasses, errors.visitorCompany && "border-rose-500")} />
               </div>
+              <div>
+                <label className={labelClasses}>Visit Date <span className="text-rose-500">*</span></label>
+                <input type="date" {...register('visitorDate', { required: 'Visit date is required' })} className={cn(inputClasses, "cursor-pointer", errors.visitorDate && "border-rose-500")} />
+              </div>
             </div>
 
             <div className="mt-8 border-t border-slate-200 dark:border-slate-700/50 pt-8 mb-8">
@@ -245,7 +253,7 @@ export default function TaskForm() {
                 <h3 className={cn("text-lg font-bold tracking-tight", isDarkMode ? "text-slate-200" : "text-slate-800")}>Extra Members</h3>
                 <button
                   type="button"
-                  onClick={() => appendExtraMember({ name: '', email: '' })}
+                  onClick={() => appendExtraMember({ name: '', email: '', mobile: '', company: '', role: '' })}
                   className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-500/20 dark:hover:bg-blue-500/30 dark:text-blue-400 rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" /> Add Member
@@ -253,20 +261,41 @@ export default function TaskForm() {
               </div>
               <div className="space-y-4">
                 {extraMemberFields.map((field, index) => (
-                  <div key={field.id} className="flex gap-4 items-start">
-                    <div className="flex-1">
+                  <div key={field.id} className="flex gap-4 items-start flex-wrap">
+                    <div className="flex-1 min-w-[150px]">
                       <input 
                         {...register(`extraMembers.${index}.name`, { required: 'Name is required' })} 
                         placeholder="Member Name"
                         className={cn(inputClasses, errors?.extraMembers?.[index]?.name && "border-rose-500")} 
                       />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-[150px]">
                       <input 
                         type="email"
                         {...register(`extraMembers.${index}.email`, { required: 'Email is required' })} 
                         placeholder="Member Email"
                         className={cn(inputClasses, errors?.extraMembers?.[index]?.email && "border-rose-500")} 
+                      />
+                    </div>
+                    <div className="flex-1 min-w-[150px]">
+                      <input 
+                        {...register(`extraMembers.${index}.mobile`, { required: 'Mobile is required' })} 
+                        placeholder="Member Mobile"
+                        className={cn(inputClasses, errors?.extraMembers?.[index]?.mobile && "border-rose-500")} 
+                      />
+                    </div>
+                    <div className="flex-1 min-w-[150px]">
+                      <input 
+                        {...register(`extraMembers.${index}.company`, { required: 'Company is required' })} 
+                        placeholder="Company Name"
+                        className={cn(inputClasses, errors?.extraMembers?.[index]?.company && "border-rose-500")} 
+                      />
+                    </div>
+                    <div className="flex-1 min-w-[150px]">
+                      <input 
+                        {...register(`extraMembers.${index}.role`, { required: 'Role is required' })} 
+                        placeholder="Role"
+                        className={cn(inputClasses, errors?.extraMembers?.[index]?.role && "border-rose-500")} 
                       />
                     </div>
                     <button 

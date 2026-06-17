@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ListTodo, PlusCircle, Sun, Moon, Menu, Users, UserPlus, LogOut, ChevronLeft, Activity, Settings } from 'lucide-react';
+import { LayoutDashboard, ListTodo, PlusCircle, Sun, Moon, Menu, Users, UserPlus, LogOut, ChevronLeft, Activity, Settings, Bell } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 
 export default function DashboardLayout() {
-  const { isDarkMode, toggleDarkMode, logout, currentUser } = useStore();
+  const { isDarkMode, toggleDarkMode, logout, currentUser, tasks } = useStore();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const reviewTasks = tasks.filter(t => t.status === 'Open for review' && t.reviewTo === currentUser?.name);
 
   const handleLogout = () => {
     logout();
@@ -19,6 +21,7 @@ export default function DashboardLayout() {
     { name: 'Task List', path: '/tasks', icon: ListTodo },
     { name: 'Status Board', path: '/status-change', icon: Activity },
     { name: 'New Task', path: '/tasks/new', icon: PlusCircle },
+    { name: 'Teams', path: '/teams', icon: Users },
     { name: 'Employees', path: '/employees', icon: Users },
     { name: 'Add Employee', path: '/employees/new', icon: UserPlus },
     { name: 'Masters Settings', path: '/masters', icon: Settings },
@@ -161,8 +164,61 @@ export default function DashboardLayout() {
           </button>
         </header>
 
+        {/* Notification Bell */}
+        <div className="absolute top-4 right-4 md:top-8 md:right-8 z-50">
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className={cn("p-3 rounded-full shadow-lg transition-all duration-300", 
+                isDarkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200"
+              )}
+            >
+              <Bell className="w-6 h-6" />
+              {reviewTasks.length > 0 && (
+                <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900">
+                  {reviewTasks.length}
+                </span>
+              )}
+            </button>
+            
+            {showNotifications && (
+              <div className={cn("absolute right-0 mt-2 w-80 rounded-2xl shadow-xl border overflow-hidden",
+                isDarkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
+              )}>
+                <div className={cn("p-4 border-b font-bold flex justify-between items-center", isDarkMode ? "border-slate-700 text-white" : "border-slate-100 text-slate-900")}>
+                  <span>Pending Reviews</span>
+                  <span className="text-xs bg-rose-500/10 text-rose-500 px-2 py-1 rounded-full">{reviewTasks.length}</span>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                  {reviewTasks.length > 0 ? (
+                    reviewTasks.map(task => (
+                      <div 
+                        key={task.id} 
+                        onClick={() => {
+                          setShowNotifications(false);
+                          navigate(`/tasks/review/${task.id}`);
+                        }}
+                        className={cn("p-4 cursor-pointer transition-colors border-b last:border-b-0", 
+                          isDarkMode ? "hover:bg-slate-700/50 border-slate-700/50" : "hover:bg-slate-50 border-slate-100"
+                        )}
+                      >
+                        <p className={cn("text-sm font-bold truncate", isDarkMode ? "text-slate-200" : "text-slate-800")}>{task.title}</p>
+                        <p className={cn("text-xs mt-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>Assigned by: {task.assignedBy}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className={cn("p-6 text-center text-sm font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>
+                      No pending reviews.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Page Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 relative z-0">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pt-20 md:pt-24 relative z-0">
           <Outlet />
         </main>
       </div>

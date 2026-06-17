@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Link, useSearchParams } from 'react-router-dom';
 import { cn } from '../utils/cn';
-import { Search, Filter, Download, Plus, Edit, Eye, Trash2, ArrowLeft } from 'lucide-react';
+import { Search, Filter, Download, Plus, Edit, Eye, Trash2, ArrowLeft, GitMerge, Layers } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
+import ProjectFlow from '../components/ProjectFlow';
 
 const getStatusColor = (status, isDarkMode) => {
   switch(status) {
@@ -33,6 +34,7 @@ export default function TaskList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
+  const [flowTask, setFlowTask] = useState(null);
   const itemsPerPage = 10;
 
   React.useEffect(() => {
@@ -107,6 +109,9 @@ export default function TaskList() {
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
+      {/* Project Flow Modal */}
+      {flowTask && <ProjectFlow task={flowTask} onClose={() => setFlowTask(null)} />}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className={cn("text-4xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Task List</h1>
@@ -244,6 +249,22 @@ export default function TaskList() {
                   </td>
                   <td className="px-3 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      {task.category === 'Development' && task.subCategory === 'Software Development' && (
+                        <Link 
+                          to={`/tasks/waterfall/${task.id}`} 
+                          className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-purple-500/20 text-purple-400" : "hover:bg-purple-50 text-purple-600")}
+                          title="Manage Waterfall Stages"
+                        >
+                          <Layers className="w-4 h-4" />
+                        </Link>
+                      )}
+                      <button 
+                        onClick={() => setFlowTask(task)}
+                        className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-emerald-500/20 text-emerald-400" : "hover:bg-emerald-50 text-emerald-600")}
+                        title="View Project Flow"
+                      >
+                        <GitMerge className="w-4 h-4" />
+                      </button>
                       <Link to={`/tasks/edit/${task.id}`} className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-blue-500/20 text-blue-400" : "hover:bg-blue-50 text-blue-600")}>
                         <Edit className="w-4 h-4" />
                       </Link>

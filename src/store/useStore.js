@@ -79,20 +79,20 @@ const INITIAL_TASKS = [
 const INITIAL_EMPLOYEES = [
   {
     id: 'EMP-001',
-    name: 'Karthik',
-    email: 'karthik@taskmaster.com',
-    bioId: 'BIO-1001',
-    password: 'password123',
+    name: 'KayalVizhi',
+    email: 'kayal@gmail.com',
+    bioId: '20250744',
+    password: '12345678',
     place: 'Onsite',
     role: 'Admin',
     createdAt: '2026-06-01T10:00:00Z',
   },
   {
     id: 'EMP-002',
-    name: 'Priya',
-    email: 'priya@taskmaster.com',
-    bioId: 'BIO-1002',
-    password: 'password123',
+    name: 'Diya',
+    email: 'diya@gmail.com',
+    bioId: '20250745',
+    password: '12345678',
     place: 'Remote',
     role: 'Developer',
     createdAt: '2026-06-05T09:30:00Z',
@@ -113,7 +113,30 @@ const INITIAL_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 const INITIAL_STATUSES = ['Open', 'Open for review', 'In Progress', 'Pending', 'On-hold', 'Completed', 'Cancelled'];
 const INITIAL_ROLES = ['Admin', 'Manager', 'Developer', 'Support', 'Sales', 'Operations'];
 const INITIAL_PLACES = ['Onsite', 'Remote'];
-const INITIAL_DASHBOARD_METRICS = ['Open for review', 'Overdue', 'In Progress', 'On-hold', 'Today created', 'Today deadlined', 'Total'];
+const INITIAL_DASHBOARD_METRICS = ['Open for review', 'In Progress', 'On-hold', 'Overdue', 'Today created', "Today's task", 'Total'];
+export const INITIAL_STAGES = ['Requirements', 'Design', 'Development', 'Testing', 'Deployment', 'Maintenance'];
+
+const INITIAL_TEAMS = [
+  {
+    id: 'TEAM-001',
+    name: 'Alpha Squad',
+    lead: 'Karthik',
+    members: ['Priya', 'Surya'],
+    createdAt: '2026-06-01T10:00:00Z'
+  }
+];
+
+const INITIAL_DISCUSSIONS = [
+  {
+    id: 'MSG-001',
+    teamId: 'TEAM-001',
+    sender: 'Karthik',
+    text: 'Welcome to the Alpha Squad discussion forum!',
+    mentions: ['Priya', 'Surya'],
+    attachments: [],
+    timestamp: '2026-06-01T10:05:00Z'
+  }
+];
 
 export const useStore = create(
   persist(
@@ -126,6 +149,8 @@ export const useStore = create(
   roles: INITIAL_ROLES,
   places: INITIAL_PLACES,
   dashboardMetrics: INITIAL_DASHBOARD_METRICS,
+  teams: INITIAL_TEAMS,
+  discussions: INITIAL_DISCUSSIONS,
   isAuthenticated: false,
   currentUser: null,
   login: (bioId, password) => {
@@ -170,20 +195,79 @@ export const useStore = create(
       const nextSequence = String(maxSequence + 1).padStart(4, '0');
       const newId = `TSK-${dateString}-${nextSequence}`;
       
+      if (taskData.category === 'Development' && taskData.subCategory === 'Software Development') {
+        if (!taskData.stage) taskData.stage = 'Requirements';
+        if (!taskData.stageDeadlines) taskData.stageDeadlines = {};
+      }
+
       const newTask = {
         ...taskData,
         id: newId,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        history: [{
+          action: 'Created',
+          timestamp: new Date().toISOString(),
+          user: state.currentUser?.name || taskData.assignedBy || 'System',
+          details: `Task created with status: ${taskData.status}`
+        }]
       };
       
       return { tasks: [newTask, ...state.tasks] };
     });
   },
   
-  updateTask: (id, updatedData) => {
-    set((state) => ({
-      tasks: state.tasks.map(t => t.id === id ? { ...t, ...updatedData } : t)
-    }));
+  updateTask: (id, updatedData, userOverride = null) => {
+    set((state) => {
+      return {
+        tasks: state.tasks.map(t => {
+          if (t.id === id) {
+            let historyEntry = null;
+            const user = userOverride || state.currentUser?.name || 'System';
+
+            if (updatedData.status && updatedData.status !== t.status) {
+              historyEntry = {
+                action: 'Status Changed',
+                timestamp: new Date().toISOString(),
+                user,
+                details: `Status changed from ${t.status} to ${updatedData.status}`
+              };
+            } else if (updatedData.assignedTo && updatedData.assignedTo !== t.assignedTo) {
+              historyEntry = {
+                action: 'Assigned',
+                timestamp: new Date().toISOString(),
+                user,
+                details: `Assigned to ${updatedData.assignedTo}`
+              };
+            } else if (updatedData.reviewTo && updatedData.reviewTo !== t.reviewTo) {
+              historyEntry = {
+                action: 'Review Requested',
+                timestamp: new Date().toISOString(),
+                user,
+                details: `Review requested from ${updatedData.reviewTo}`
+              };
+            } else if (updatedData.stage && updatedData.stage !== t.stage) {
+              historyEntry = {
+                action: 'Stage Advanced',
+                timestamp: new Date().toISOString(),
+                user,
+                details: `Project stage updated from ${t.stage || 'None'} to ${updatedData.stage}`
+              };
+            } else {
+              historyEntry = {
+                action: 'Updated',
+                timestamp: new Date().toISOString(),
+                user,
+                details: `Task details were updated`
+              };
+            }
+
+            const newHistory = [...(t.history || []), historyEntry];
+            return { ...t, ...updatedData, history: newHistory };
+          }
+          return t;
+        })
+      };
+    });
   },
   
   deleteTask: (id) => {
@@ -326,6 +410,57 @@ export const useStore = create(
       }
       
       return { [listName]: newList, tasks: updatedTasks, employees: updatedEmployees };
+    });
+  },
+
+  // Teams Management
+  createTeam: (teamData) => {
+    set((state) => {
+      const maxSequence = state.teams.reduce((max, t) => {
+        const parts = t.id.split('-');
+        if (parts.length === 2) {
+          const seq = parseInt(parts[1], 10);
+          if (seq > max) return seq;
+        }
+        return max;
+      }, 0);
+      
+      const nextSequence = String(maxSequence + 1).padStart(3, '0');
+      const newId = `TEAM-${nextSequence}`;
+      
+      const newTeam = {
+        ...teamData,
+        id: newId,
+        createdAt: new Date().toISOString()
+      };
+      
+      return { teams: [newTeam, ...state.teams] };
+    });
+  },
+  
+  updateTeam: (id, updatedData) => {
+    set((state) => ({
+      teams: state.teams.map(t => t.id === id ? { ...t, ...updatedData } : t)
+    }));
+  },
+  
+  deleteTeam: (id) => {
+    set((state) => ({
+      teams: state.teams.filter(t => t.id !== id),
+      discussions: state.discussions.filter(d => d.teamId !== id) // Cascade delete discussions
+    }));
+  },
+
+  // Discussion Forum
+  addMessage: (messageData) => {
+    set((state) => {
+      const newMessage = {
+        ...messageData,
+        id: `MSG-${Date.now()}`,
+        timestamp: new Date().toISOString()
+      };
+      
+      return { discussions: [...state.discussions, newMessage] };
     });
   }
 

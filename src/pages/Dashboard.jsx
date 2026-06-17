@@ -208,18 +208,18 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 lg:gap-6">
         <StatCard title="Open for review" value={openForReviewTasks} icon={AlertCircle} gradientFrom="from-amber-400" gradientTo="to-orange-500" onClick={() => navigate('/tasks?status=Open for review')} />
-        <StatCard title="Overdue" value={overdueTasks} icon={Clock} gradientFrom="from-rose-400" gradientTo="to-red-500" onClick={() => navigate('/tasks?status=All')} />
-        <StatCard title="Progress" value={inProgressTasks} icon={RefreshCcw} gradientFrom="from-blue-400" gradientTo="to-indigo-500" onClick={() => navigate('/tasks?status=In Progress')} />
+        <StatCard title="In Progress" value={inProgressTasks} icon={RefreshCcw} gradientFrom="from-blue-400" gradientTo="to-indigo-500" onClick={() => navigate('/tasks?status=In Progress')} />
         <StatCard title="On-hold" value={onHoldTasks} icon={PauseCircle} gradientFrom="from-slate-400" gradientTo="to-gray-500" onClick={() => navigate('/tasks?status=On-hold')} />
+        <StatCard title="Overdue" value={overdueTasks} icon={Clock} gradientFrom="from-rose-400" gradientTo="to-red-500" onClick={() => navigate('/tasks?status=All')} />
         <StatCard title="Today created" value={todayCreatedTasks} icon={FolderGit2} gradientFrom="from-purple-400" gradientTo="to-fuchsia-500" onClick={() => navigate('/tasks')} />
-        <StatCard title="Today deadlined" value={todayDeadlinedTasks} icon={Briefcase} gradientFrom="from-emerald-400" gradientTo="to-teal-500" onClick={() => navigate('/tasks')} />
+        <StatCard title="Today's task" value={todayDeadlinedTasks} icon={Briefcase} gradientFrom="from-emerald-400" gradientTo="to-teal-500" onClick={() => navigate('/tasks')} />
       </div>
 
       <div className="pt-6">
         <h2 className={cn("text-2xl font-extrabold tracking-tight mb-6", isDarkMode ? "text-white" : "text-slate-900")}>Category Breakdown</h2>
         
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6 items-start">
-          <div className="xl:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 lg:gap-6 items-start">
+          <div className="xl:col-span-3 space-y-6">
             <div className={cn("rounded-3xl border overflow-hidden shadow-sm transition-all duration-300",
               isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200"
             )}>
@@ -227,40 +227,39 @@ export default function Dashboard() {
                 <table className="w-full text-left text-sm">
                   <thead className={cn("border-b", isDarkMode ? "bg-slate-900/50 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
                     <tr>
-                      <th className={cn("px-4 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>Metrics</th>
-                      {allCategories.map(cat => (
-                        <th key={cat} className={cn("px-3 py-4 font-bold uppercase tracking-wider text-[10px] md:text-xs text-center", isDarkMode ? "text-slate-400" : "text-slate-500")}>{cat}</th>
+                      <th className={cn("px-4 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>Category</th>
+                      {dashboardMetrics?.map(metric => (
+                        <th key={metric} className={cn("px-3 py-4 font-bold uppercase tracking-wider text-[10px] md:text-xs text-center", isDarkMode ? "text-slate-400" : "text-slate-500")}>{metric}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                    {dashboardMetrics?.map((metricLabel, idx) => {
-                      let filterFn;
-                      if (metricLabel === 'Open for review') {
-                        filterFn = (t) => t.status === 'Open for review';
-                      } else if (metricLabel === 'Overdue') {
-                        filterFn = (t) => t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status);
-                      } else if (metricLabel === 'Today created') {
-                        filterFn = (t) => t.createdAt && t.createdAt.startsWith(today);
-                      } else if (metricLabel === 'Today deadlined') {
-                        filterFn = (t) => t.dueDate === today;
-                      } else if (metricLabel === 'Total') {
-                        filterFn = () => true;
-                      } else {
-                        // Maps dynamically to the exact status name or alias (like 'Progress' -> 'In Progress')
-                        filterFn = (t) => t.status === metricLabel || t.status === metricLabel.replace('Progress', 'In Progress');
-                      }
-
+                    {allCategories.map((cat, idx) => {
                       return (
-                        <tr key={metricLabel} className={cn("transition-all duration-200 group cursor-default", 
+                        <tr key={cat} className={cn("transition-all duration-200 group cursor-default", 
                           isDarkMode ? "hover:bg-slate-700/40" : "hover:bg-slate-50",
                           idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/20" : "bg-slate-50/50")
                         )}>
-                          <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-300 text-xs md:text-sm">{metricLabel}</td>
-                          {allCategories.map(cat => {
+                          <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-300 text-xs md:text-sm">{cat}</td>
+                          {dashboardMetrics?.map(metricLabel => {
+                            let filterFn;
+                            if (metricLabel === 'Open for review') {
+                              filterFn = (t) => t.status === 'Open for review';
+                            } else if (metricLabel === 'Overdue') {
+                              filterFn = (t) => t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status);
+                            } else if (metricLabel === 'Today created') {
+                              filterFn = (t) => t.createdAt && t.createdAt.startsWith(today);
+                            } else if (metricLabel === "Today's task") {
+                              filterFn = (t) => t.dueDate === today;
+                            } else if (metricLabel === 'Total') {
+                              filterFn = () => true;
+                            } else {
+                              filterFn = (t) => t.status === metricLabel || t.status === metricLabel.replace('Progress', 'In Progress');
+                            }
+
                             const count = tasks.filter(t => t.category === cat && filterFn(t)).length;
                             return (
-                              <td key={cat} className="px-3 py-4 font-semibold text-slate-600 dark:text-slate-400 text-center">
+                              <td key={metricLabel} className="px-3 py-4 font-semibold text-slate-600 dark:text-slate-400 text-center">
                                 {count > 0 ? (
                                   <span className={cn("px-2 py-1 rounded-lg text-xs font-bold", 
                                     isDarkMode ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-600"
@@ -280,7 +279,7 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="xl:col-span-1 sticky top-6">
+          <div className="xl:col-span-2 sticky top-6">
             {renderCalendar()}
           </div>
         </div>
