@@ -46,8 +46,8 @@ export default function EmployeeList() {
       <div className={cn("p-2 rounded-2xl flex flex-col md:flex-row gap-3 shadow-sm",
         isDarkMode ? "bg-slate-800/60 backdrop-blur-md" : "bg-white border border-slate-200"
       )}>
-        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl flex-1 transition-colors",
-          isDarkMode ? "bg-slate-900/50 focus-within:bg-slate-900" : "bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20"
+        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl flex-1 transition-colors border",
+          isDarkMode ? "bg-slate-900/50 border-slate-700 focus-within:border-blue-500 focus-within:bg-slate-900" : "bg-slate-50 border-slate-200 focus-within:border-blue-500 focus-within:bg-white"
         )}>
           <Search className="w-5 h-5 text-slate-400" />
           <input 
@@ -55,7 +55,7 @@ export default function EmployeeList() {
             placeholder="Search employees by name, email or ID..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-transparent border-none outline-none w-full text-sm font-medium placeholder:text-slate-400 dark:text-slate-100"
+            className="bg-transparent border-none outline-none focus:outline-none focus:ring-0 w-full text-sm font-medium placeholder:text-slate-400 dark:text-slate-100"
           />
         </div>
       </div>

@@ -58,10 +58,10 @@ export default function EmployeeForm() {
   };
 
   const inputClasses = cn(
-    "w-full px-4 py-3.5 rounded-xl border outline-none transition-all duration-300 text-sm font-semibold",
+    "w-full px-4 py-3.5 rounded-xl border outline-none focus:outline-none focus:ring-0 transition-all duration-300 text-sm font-semibold",
     isDarkMode 
-      ? "bg-slate-900/50 border-slate-700 text-slate-100 focus:border-blue-500 focus:bg-slate-900 focus:ring-4 focus:ring-blue-500/10" 
-      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+      ? "bg-slate-900/50 border-slate-700 text-slate-100 focus:border-blue-500 focus:bg-slate-900" 
+      : "bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500 focus:bg-white"
   );
   
   const labelClasses = cn("block text-sm font-bold mb-2 tracking-wide", isDarkMode ? "text-slate-300" : "text-slate-700");

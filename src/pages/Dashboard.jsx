@@ -2,35 +2,43 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, INITIAL_DASHBOARD_METRICS } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { Briefcase, CheckCircle2, Clock, AlertCircle, TrendingUp, FolderGit2, RefreshCcw, Hourglass, PauseCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Briefcase, CheckCircle2, Clock, AlertCircle, TrendingUp, FolderGit2, RefreshCcw,
+  Hourglass, PauseCircle, XCircle, ChevronLeft, ChevronRight, Eye, Sparkles,
+  Activity, AlertTriangle, PlusSquare, Target, Calendar
+} from 'lucide-react';
+
 
 const StatCard = ({ title, value, icon: Icon, gradientFrom, gradientTo, onClick }) => {
-  const { isDarkMode } = useStore();
   return (
-    <div 
+    <div
       onClick={onClick}
-      className={cn("relative overflow-hidden p-4 md:p-5 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group", 
-      isDarkMode ? "bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60" : "bg-white border-slate-100 shadow-sm hover:bg-slate-50",
-      onClick && "cursor-pointer"
-    )}>
-      <div className={cn("absolute -right-10 -top-10 w-32 h-32 rounded-full opacity-20 blur-2xl group-hover:opacity-40 transition-opacity", `bg-gradient-to-br ${gradientFrom} ${gradientTo}`)} />
-      
-      <div className="flex items-start justify-between relative z-10 gap-2">
-        <div className="min-w-0">
-          <p className={cn("text-xs xl:text-[11px] 2xl:text-xs font-semibold tracking-wide mb-1.5 truncate", isDarkMode ? "text-slate-400" : "text-slate-500")} title={title}>{title}</p>
-          <h3 className={cn("text-2xl md:text-3xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>{value}</h3>
-        </div>
-        <div className={cn("p-2.5 rounded-2xl bg-gradient-to-br text-white shadow-lg flex-shrink-0", gradientFrom, gradientTo)}>
-          <Icon className="w-5 h-5" />
-        </div>
+      className={cn(
+        "relative overflow-hidden p-3 md:p-4 rounded-[20px] transition-all duration-300 hover:-translate-y-1 group flex items-center gap-3 md:gap-4 shadow-md hover:shadow-xl text-white",
+        `bg-gradient-to-br ${gradientFrom} ${gradientTo}`,
+        onClick && "cursor-pointer"
+      )}>
+
+      {/* Decorative overlays */}
+      <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/20 blur-2xl group-hover:bg-white/30 transition-colors duration-300" />
+      <div className="absolute -left-6 -bottom-6 w-20 h-20 rounded-full bg-black/5 blur-xl" />
+
+      <div className="p-2.5 md:p-3 rounded-2xl bg-white/20 backdrop-blur-md shadow-sm flex-shrink-0 relative z-10 transform group-hover:scale-105 group-hover:rotate-6 transition-all duration-300 border border-white/10">
+        <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" strokeWidth={2.5} />
       </div>
-      <div className="mt-4 flex items-center text-xs font-medium text-emerald-500">
-        <TrendingUp className="w-3 h-3 mr-1" />
-        <span>Current Status</span>
+
+      <div className="min-w-0 flex-1 relative z-10">
+        <p className="text-[10px] md:text-[11px] font-black tracking-wider mb-0.5 uppercase leading-tight drop-shadow-sm" title={title}>
+          {title}
+        </p>
+        <h3 className="text-2xl md:text-3xl font-black tracking-tight drop-shadow-sm">
+          {value}
+        </h3>
       </div>
     </div>
   );
 };
+
 
 export default function Dashboard() {
   const { tasks, isDarkMode, categories } = useStore();
@@ -41,12 +49,12 @@ export default function Dashboard() {
   const openForReviewTasks = tasks.filter(t => t.status === 'Open for review').length;
   const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length;
   const onHoldTasks = tasks.filter(t => t.status === 'On-hold').length;
-  
+
   const today = new Date().toISOString().split('T')[0];
-  const overdueTasks = tasks.filter(t => 
+  const overdueTasks = tasks.filter(t =>
     t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status)
   ).length;
-  
+
   const todayCreatedTasks = tasks.filter(t => t.createdAt && t.createdAt.startsWith(today)).length;
   const todayDeadlinedTasks = tasks.filter(t => t.dueDate === today).length;
 
@@ -58,12 +66,12 @@ export default function Dashboard() {
   const renderCalendar = () => {
     const todayObj = new Date();
     const todayStrLocal = todayObj.toISOString().split('T')[0];
-    
+
     const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
-    
+
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    
+
     const days = [];
     for (let i = 0; i < firstDayOfMonth; i++) {
       days.push(null);
@@ -71,7 +79,7 @@ export default function Dashboard() {
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
       const offset = d.getTimezoneOffset()
-      const dLocal = new Date(d.getTime() - (offset*60*1000))
+      const dLocal = new Date(d.getTime() - (offset * 60 * 1000))
       days.push(dLocal.toISOString().split('T')[0]);
     }
 
@@ -87,7 +95,7 @@ export default function Dashboard() {
     });
 
     const getPriorityColor = (priority) => {
-      switch(priority) {
+      switch (priority) {
         case 'Critical': return isDarkMode ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-rose-50 text-rose-700 border border-rose-200';
         case 'High': return isDarkMode ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-orange-50 text-orange-700 border border-orange-200';
         case 'Medium': return isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-700 border border-blue-200';
@@ -97,7 +105,7 @@ export default function Dashboard() {
     };
 
     const getStatusColor = (status) => {
-      switch(status) {
+      switch (status) {
         case 'Completed': return isDarkMode ? 'text-emerald-400' : 'text-emerald-600';
         case 'In Progress': return isDarkMode ? 'text-blue-400' : 'text-blue-600';
         case 'Open': return isDarkMode ? 'text-amber-400' : 'text-amber-600';
@@ -116,79 +124,84 @@ export default function Dashboard() {
     );
 
     return (
-      <div className={cn("p-6 rounded-3xl border shadow-sm transition-all duration-300 h-full", 
-        isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200"
+      <div className={cn("p-6 md:p-8 rounded-[2rem] border shadow-lg transition-all duration-300 h-full backdrop-blur-xl",
+        isDarkMode ? "bg-slate-900/40 border-slate-700/50" : "bg-white/80 border-slate-200/60"
       )}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className={cn("text-lg font-bold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>
-            {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        <div className="flex items-center justify-between mb-8">
+          <h3 className={cn("text-xl md:text-2xl font-black tracking-tight", isDarkMode ? "text-white" : "text-slate-800")}>
+            {monthNames[currentMonth.getMonth()]} <span className="text-indigo-500">{currentMonth.getFullYear()}</span>
           </h3>
           <div className="flex gap-2">
-            <button onClick={handlePrevMonth} className={cn("p-1.5 rounded-lg transition-colors", isDarkMode ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600")}>
+            <button onClick={handlePrevMonth} className={cn("p-2 rounded-xl transition-all duration-200 hover:scale-105", isDarkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300" : "bg-white shadow-sm border border-slate-200 hover:bg-slate-50 text-slate-600")}>
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <button onClick={handleNextMonth} className={cn("p-1.5 rounded-lg transition-colors", isDarkMode ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600")}>
+            <button onClick={handleNextMonth} className={cn("p-2 rounded-xl transition-all duration-200 hover:scale-105", isDarkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300" : "bg-white shadow-sm border border-slate-200 hover:bg-slate-50 text-slate-600")}>
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 mb-2 text-center">
+        <div className="grid grid-cols-7 gap-2 mb-4 text-center">
           {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-            <div key={d} className={cn("text-xs font-bold uppercase", isDarkMode ? "text-slate-500" : "text-slate-400")}>{d}</div>
+            <div key={d} className={cn("text-xs font-black uppercase tracking-wider", isDarkMode ? "text-slate-500" : "text-slate-400")}>{d}</div>
           ))}
         </div>
 
         <div className="grid grid-cols-7 gap-2 text-center">
           {days.map((dateStr, i) => {
             if (!dateStr) return <div key={`empty-${i}`} className="p-2"></div>;
-            
+
             const isToday = dateStr === todayStrLocal;
             const isSelected = dateStr === selectedDate;
             const hasEvents = tasksByDate[dateStr] && tasksByDate[dateStr].length > 0;
             const dayNum = parseInt(dateStr.split('-')[2], 10);
 
             return (
-              <button 
+              <button
                 key={dateStr}
                 onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                className={cn("relative p-2 rounded-xl text-sm font-bold transition-all duration-200 aspect-square flex flex-col items-center justify-center",
-                  isSelected ? "bg-blue-600 text-white shadow-md shadow-blue-500/30 scale-110 z-10" : 
-                  isToday ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400" :
-                  hasEvents ? "bg-slate-800 text-white dark:bg-slate-700 dark:text-slate-200" : 
-                  isDarkMode ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-700"
+                className={cn("relative p-2 rounded-2xl text-sm font-bold transition-all duration-300 aspect-square flex flex-col items-center justify-center group",
+                  isSelected ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-purple-500/30 scale-110 z-10" :
+                    isToday ? "bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-500/50 ring-offset-2 ring-offset-white dark:ring-offset-slate-900" :
+                      hasEvents ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20" :
+                        isDarkMode ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-700"
                 )}
               >
                 <span>{dayNum}</span>
                 {hasEvents && !isSelected && !isToday && (
-                  <span className="absolute bottom-1.5 w-1 h-1 rounded-full bg-slate-400 dark:bg-slate-400"></span>
+                  <span className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 group-hover:scale-125 transition-transform"></span>
                 )}
               </button>
             );
           })}
         </div>
-        
+
         {selectedDate && (
-          <div className="mt-8 pt-6 border-t dark:border-slate-700/50">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className={cn("text-sm font-bold", isDarkMode ? "text-slate-200" : "text-slate-800")}>
-                Events for {selectedDate}
+          <div className="mt-8 pt-6 border-t dark:border-slate-700/50 animate-[fadeIn_0.3s_ease-out]">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className={cn("text-base font-black tracking-tight", isDarkMode ? "text-slate-200" : "text-slate-800")}>
+                Events for <span className="text-indigo-500">{selectedDate}</span>
               </h4>
-              <button onClick={() => setSelectedDate(null)} className="text-xs font-bold text-blue-500 hover:text-blue-600">Clear</button>
+              <button onClick={() => setSelectedDate(null)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors">Clear</button>
             </div>
-            
+
             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
               {tasksByDate[selectedDate] ? tasksByDate[selectedDate].map(task => (
-                <div key={task.id} className={cn("p-3 rounded-xl border text-left cursor-pointer transition-colors", isDarkMode ? "bg-slate-800 border-slate-700 hover:bg-slate-700" : "bg-slate-50 border-slate-200 hover:bg-slate-100")} onClick={() => navigate(`/tasks/edit/${task.id}`)}>
-                  <p className={cn("text-xs font-bold mb-1 truncate", getPriorityColor(task.priority).split(' ')[0])}>{task.priority} Priority</p>
-                  <p className={cn("text-sm font-bold truncate", isDarkMode ? "text-slate-200" : "text-slate-800")}>{task.title}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className={cn("text-xs font-semibold", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.category}</span>
-                    <span className="text-xs font-semibold"><StatusBadge status={task.status} /></span>
+                <div key={task.id} className={cn("p-4 rounded-2xl border text-left cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-md", isDarkMode ? "bg-slate-800/60 border-slate-700 hover:bg-slate-700/80" : "bg-white border-slate-100 hover:border-slate-200 shadow-sm")} onClick={() => navigate(`/tasks/edit/${task.id}`)}>
+                  <p className={cn("text-xs font-black mb-1.5 uppercase tracking-wide", getPriorityColor(task.priority).split(' ')[0])}>{task.priority} Priority</p>
+                  <p className={cn("text-base font-bold mb-3 line-clamp-1", isDarkMode ? "text-slate-100" : "text-slate-800")}>{task.title}</p>
+                  <div className="flex items-center justify-between">
+                    <span className={cn("text-xs font-bold px-2 py-1 rounded-md", isDarkMode ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600")}>{task.category}</span>
+                    <StatusBadge status={task.status} />
                   </div>
                 </div>
               )) : (
-                <p className={cn("text-sm font-medium text-center py-4", isDarkMode ? "text-slate-500" : "text-slate-400")}>No events for this date.</p>
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                    <Calendar className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className={cn("text-sm font-bold", isDarkMode ? "text-slate-400" : "text-slate-500")}>No events for this date.</p>
+                </div>
               )}
             </div>
           </div>
@@ -206,42 +219,42 @@ export default function Dashboard() {
         </div> */}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 lg:gap-4">
-        <StatCard title="Open for review" value={openForReviewTasks} icon={AlertCircle} gradientFrom="from-amber-400" gradientTo="to-orange-500" onClick={() => navigate('/tasks?status=Open for review')} />
-        <StatCard title="New Task" value={tasks.filter(t => t.status === 'New Task').length} icon={RefreshCcw} gradientFrom="from-yellow-400" gradientTo="to-amber-500" onClick={() => navigate('/tasks?status=New Task')} />
-        <StatCard title="In Progress" value={inProgressTasks} icon={RefreshCcw} gradientFrom="from-blue-400" gradientTo="to-indigo-500" onClick={() => navigate('/tasks?status=In Progress')} />
-        <StatCard title="On-hold" value={onHoldTasks} icon={PauseCircle} gradientFrom="from-slate-400" gradientTo="to-gray-500" onClick={() => navigate('/tasks?status=On-hold')} />
-        <StatCard title="Overdue" value={overdueTasks} icon={Clock} gradientFrom="from-rose-400" gradientTo="to-red-500" onClick={() => navigate('/tasks?status=All')} />
-        <StatCard title="Today created" value={todayCreatedTasks} icon={FolderGit2} gradientFrom="from-purple-400" gradientTo="to-fuchsia-500" onClick={() => navigate('/tasks')} />
-        <StatCard title="Today's task" value={todayDeadlinedTasks} icon={Briefcase} gradientFrom="from-emerald-400" gradientTo="to-teal-500" onClick={() => navigate('/tasks')} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 lg:gap-6">
+        <StatCard title="Open for review" value={openForReviewTasks} icon={Eye} gradientFrom="from-amber-400" gradientTo="to-orange-600" onClick={() => navigate('/tasks?status=Open for review')} />
+        <StatCard title="New Task" value={tasks.filter(t => t.status === 'New Task').length} icon={Sparkles} gradientFrom="from-emerald-400" gradientTo="to-emerald-600" onClick={() => navigate('/tasks?status=New Task')} />
+        <StatCard title="In Progress" value={inProgressTasks} icon={Activity} gradientFrom="from-blue-400" gradientTo="to-indigo-600" onClick={() => navigate('/tasks?status=In Progress')} />
+        <StatCard title="On-hold" value={onHoldTasks} icon={PauseCircle} gradientFrom="from-slate-400" gradientTo="to-slate-600" onClick={() => navigate('/tasks?status=On-hold')} />
+        <StatCard title="Overdue" value={overdueTasks} icon={AlertTriangle} gradientFrom="from-rose-400" gradientTo="to-rose-600" onClick={() => navigate('/tasks?status=All')} />
+        <StatCard title="Today created" value={todayCreatedTasks} icon={PlusSquare} gradientFrom="from-purple-400" gradientTo="to-purple-600" onClick={() => navigate('/tasks')} />
+        <StatCard title="Today's task" value={todayDeadlinedTasks} icon={Target} gradientFrom="from-cyan-400" gradientTo="to-cyan-600" onClick={() => navigate('/tasks')} />
       </div>
 
       <div className="pt-6">
         <h2 className={cn("text-2xl font-extrabold tracking-tight mb-6", isDarkMode ? "text-white" : "text-slate-900")}>Category Breakdown</h2>
-        
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 lg:gap-6 items-start">
+
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 lg:gap-8 items-start">
           <div className="xl:col-span-3 space-y-6">
-            <div className={cn("rounded-3xl border overflow-hidden shadow-sm transition-all duration-300",
-              isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200"
+            <div className={cn("rounded-lg border overflow-hidden shadow-md transition-all duration-300 backdrop-blur-xl",
+              isDarkMode ? "bg-slate-900/60 border-slate-700/50" : "bg-white/90 border-slate-200"
             )}>
               <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full text-left text-sm">
-                  <thead className={cn("border-b", isDarkMode ? "bg-slate-900/50 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
+                  <thead className={cn("border-b-2", isDarkMode ? "bg-slate-800/90 border-slate-600" : "bg-slate-100 border-slate-300")}>
                     <tr>
-                      <th className={cn("px-4 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>Category</th>
+                      <th className={cn("px-6 py-4 font-black uppercase tracking-wider text-xs", isDarkMode ? "text-slate-300" : "text-slate-700")}>Category</th>
                       {INITIAL_DASHBOARD_METRICS.map(metric => (
-                        <th key={metric} className={cn("px-3 py-4 font-bold uppercase tracking-wider text-[10px] md:text-xs text-center", isDarkMode ? "text-slate-400" : "text-slate-500")}>{metric}</th>
+                        <th key={metric} className={cn("px-4 py-4 font-black uppercase tracking-wider text-[10px] md:text-xs text-center", isDarkMode ? "text-slate-300" : "text-slate-700")}>{metric}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                  <tbody className={cn("divide-y", isDarkMode ? "divide-slate-700" : "divide-slate-200")}>
                     {allCategories.map((cat, idx) => {
                       return (
-                        <tr key={cat} className={cn("transition-all duration-200 group cursor-default", 
-                          isDarkMode ? "hover:bg-slate-700/40" : "hover:bg-slate-50",
-                          idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/20" : "bg-slate-50/50")
+                        <tr key={cat} className={cn("transition-all duration-300 group cursor-default",
+                          isDarkMode ? "hover:bg-slate-800/80" : "hover:bg-slate-50",
+                          idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/40" : "bg-slate-50/50")
                         )}>
-                          <td className="px-4 py-4 font-bold text-slate-700 dark:text-slate-300 text-xs md:text-sm">{cat}</td>
+                          <td className={cn("px-6 py-4 font-bold text-sm border-r", isDarkMode ? "text-slate-100 border-slate-800/50" : "text-slate-900 border-slate-100")}>{cat}</td>
                           {INITIAL_DASHBOARD_METRICS.map(metricLabel => {
                             let filterFn;
                             if (metricLabel === 'Open for review') {
@@ -260,13 +273,13 @@ export default function Dashboard() {
 
                             const count = tasks.filter(t => t.category === cat && filterFn(t)).length;
                             return (
-                              <td key={metricLabel} className="px-3 py-4 font-semibold text-center">
+                              <td key={metricLabel} className="px-4 py-4 font-semibold text-center">
                                 {count > 0 ? (
-                                  <button onClick={() => navigate(`/tasks?category=${encodeURIComponent(cat)}${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `&status=${encodeURIComponent(metricLabel)}` : ''}`)} className={cn("px-3 py-1.5 rounded-lg text-sm md:text-base font-bold cursor-pointer transition-colors hover:bg-blue-100 dark:hover:bg-blue-500/20", 
-                                    isDarkMode ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-600"
+                                  <button onClick={() => navigate(`/tasks?category=${encodeURIComponent(cat)}${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `&status=${encodeURIComponent(metricLabel)}` : ''}`)} className={cn("px-4 py-2 rounded-lg text-sm font-bold cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-md",
+                                    isDarkMode ? "bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 hover:shadow-indigo-500/20" : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200 hover:shadow-indigo-200/50"
                                   )}>{count}</button>
                                 ) : (
-                                  <span className="text-slate-400 dark:text-slate-500 font-bold text-sm md:text-base">0</span>
+                                  <span className={cn("font-black text-base", isDarkMode ? "text-white" : "text-black")}>0</span>
                                 )}
                               </td>
                             );
@@ -275,9 +288,9 @@ export default function Dashboard() {
                       );
                     })}
                   </tbody>
-                  <tfoot className={cn("border-t font-extrabold", isDarkMode ? "bg-slate-900/80 border-slate-700/50" : "bg-slate-100 border-slate-200")}>
+                  <tfoot className={cn("border-t-2", isDarkMode ? "bg-slate-800/90 border-slate-600" : "bg-slate-100 border-slate-300")}>
                     <tr>
-                      <td className="px-4 py-4 text-slate-900 dark:text-slate-100 text-xs md:text-sm">TOTAL</td>
+                      <td className={cn("px-6 py-4 font-black text-sm border-r", isDarkMode ? "text-slate-100 border-slate-700" : "text-slate-900 border-slate-200")}>TOTAL</td>
                       {INITIAL_DASHBOARD_METRICS.map(metricLabel => {
                         let filterFn;
                         if (metricLabel === 'Open for review') {
@@ -293,16 +306,16 @@ export default function Dashboard() {
                         } else {
                           filterFn = (t) => t.status === metricLabel;
                         }
-                        
+
                         const count = tasks.filter(t => filterFn(t)).length;
                         return (
-                          <td key={metricLabel} className="px-3 py-4 text-center">
+                          <td key={metricLabel} className="px-4 py-4 text-center">
                             {count > 0 ? (
-                              <button onClick={() => navigate(`/tasks?${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `status=${encodeURIComponent(metricLabel)}` : ''}`)} className={cn("px-3 py-1.5 rounded-lg text-sm md:text-base font-extrabold cursor-pointer transition-colors hover:bg-slate-200 dark:hover:bg-slate-700", 
-                                isDarkMode ? "text-slate-100 bg-slate-800" : "text-slate-900 bg-slate-100"
+                              <button onClick={() => navigate(`/tasks?${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `status=${encodeURIComponent(metricLabel)}` : ''}`)} className={cn("px-4 py-2 rounded-lg text-sm font-black cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-md",
+                                isDarkMode ? "bg-slate-700 text-slate-100 hover:bg-slate-600 hover:shadow-slate-900/50" : "bg-slate-800 text-white shadow-sm hover:shadow-md hover:bg-slate-700"
                               )}>{count}</button>
                             ) : (
-                              <span className="text-slate-400 dark:text-slate-500 font-bold text-sm md:text-base">0</span>
+                              <span className={cn("font-black text-base", isDarkMode ? "text-white" : "text-black")}>0</span>
                             )}
                           </td>
                         );
@@ -313,7 +326,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          
+
           <div className="xl:col-span-2 sticky top-6">
             {renderCalendar()}
           </div>

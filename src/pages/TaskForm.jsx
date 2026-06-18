@@ -220,21 +220,7 @@ export default function TaskForm() {
               </select>
             </div>
 
-            {(!reviewToVal || isEditMode) && (
-              <div>
-                <label className={labelClasses}>Assigned To {!reviewToVal && <span className="text-rose-500">*</span>}</label>
-                <select 
-                  {...register('assignedTo', { required: !reviewToVal ? 'Assignee is required' : false })} 
-                  className={cn(inputClasses, "appearance-none cursor-pointer", errors.assignedTo && "border-rose-500")}
-                >
-                  <option value="">Select Assignee</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.name}>{emp.name}</option>
-                  ))}
-                </select>
-                {errors.assignedTo && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.assignedTo.message}</p>}
-              </div>
-            )}
+
           </div>
         </div>
 
