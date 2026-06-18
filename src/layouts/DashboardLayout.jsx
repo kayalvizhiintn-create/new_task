@@ -75,7 +75,7 @@ export default function DashboardLayout() {
           </div>
         )}
 
-        <nav className="p-4 space-y-2 mt-2 flex-1 overflow-y-auto">
+        <nav className="p-4 space-y-2 mt-2 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {navItems.map((item) => (
             <NavLink
               key={item.name}

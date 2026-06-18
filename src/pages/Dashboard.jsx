@@ -237,7 +237,7 @@ export default function Dashboard() {
             <div className={cn("rounded-lg border overflow-hidden shadow-md transition-all duration-300 backdrop-blur-xl",
               isDarkMode ? "bg-slate-900/60 border-slate-700/50" : "bg-white/90 border-slate-200"
             )}>
-              <div className="overflow-x-auto custom-scrollbar">
+              <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <table className="w-full text-left text-sm">
                   <thead className={cn("border-b-2", isDarkMode ? "bg-slate-800/90 border-slate-600" : "bg-slate-100 border-slate-300")}>
                     <tr>

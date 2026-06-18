@@ -25,7 +25,7 @@ export default function EmployeeForm() {
   const isEditMode = Boolean(id);
   const empToEdit = isEditMode ? employees.find(e => e.id === id) : null;
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
       name: empToEdit?.name || '',
       email: empToEdit?.email || '',
@@ -36,6 +36,8 @@ export default function EmployeeForm() {
       role: empToEdit?.role || ''
     }
   });
+
+  const avatarImage = watch('avatar');
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -114,13 +116,30 @@ export default function EmployeeForm() {
 
             <div className="md:col-span-2">
               <label className={labelClasses}>Profile Image</label>
-              <input 
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className={cn(inputClasses, "file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer")} 
-              />
-              <p className="text-xs mt-2 text-slate-500 dark:text-slate-400 font-medium">Browse for a profile picture. The image will be securely stored.</p>
+              {avatarImage ? (
+                <div className="flex items-center gap-6 mt-2">
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-md bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold border-white dark:border-slate-800">
+                    <img src={avatarImage} alt="Profile preview" className="w-full h-full object-cover" />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setValue('avatar', '')}
+                    className="px-4 py-2 rounded-xl text-sm font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 transition-colors"
+                  >
+                    Remove Image
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input 
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className={cn(inputClasses, "file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer")} 
+                  />
+                  <p className="text-xs mt-2 text-slate-500 dark:text-slate-400 font-medium">Browse for a profile picture. The image will be securely stored.</p>
+                </>
+              )}
             </div>
           </div>
         </div>
