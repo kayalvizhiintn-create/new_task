@@ -4,6 +4,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import TaskList from './pages/TaskList';
 import TaskForm from './pages/TaskForm';
+import TaskView from './pages/TaskView';
 import ReviewTask from './pages/ReviewTask';
 import EmployeeList from './pages/EmployeeList';
 import EmployeeForm from './pages/EmployeeForm';
@@ -37,6 +38,7 @@ function App() {
             <Route path="tasks" element={<TaskList />} />
             <Route path="tasks/new" element={<TaskForm />} />
             <Route path="tasks/edit/:id" element={<TaskForm />} />
+            <Route path="tasks/view/:id" element={<TaskView />} />
             <Route path="tasks/review/:id" element={<ReviewTask />} />
             <Route path="tasks/waterfall/:id" element={<ProjectWaterfall />} />
             <Route path="status-change" element={<StatusChange />} />

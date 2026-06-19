@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { cn } from '../utils/cn';
 import { Search, Filter, Download, Plus, Edit, Eye, Trash2, ArrowLeft, GitMerge, Layers, Users } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
@@ -27,6 +27,7 @@ const StatusBadge = ({ status, isDarkMode }) => (
 
 export default function TaskList() {
   const { tasks, employees, isDarkMode, deleteTask, categories, statuses } = useStore();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -211,7 +212,10 @@ export default function TaskList() {
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
               {paginatedTasks.length > 0 ? paginatedTasks.map((task, idx) => (
-                <tr key={task.id} className={cn("transition-all duration-200 group cursor-default", 
+                <tr 
+                  key={task.id} 
+                  onClick={() => navigate(`/tasks/view/${task.id}`)}
+                  className={cn("transition-all duration-200 group cursor-pointer", 
                   isDarkMode ? "hover:bg-slate-700/40" : "hover:bg-slate-50",
                   idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/20" : "bg-slate-50/50")
                 )}>
@@ -252,6 +256,7 @@ export default function TaskList() {
                       {task.category === 'Development' && task.subCategory === 'Software Development' && (
                         <Link 
                           to={`/tasks/waterfall/${task.id}`} 
+                          onClick={(e) => e.stopPropagation()}
                           className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-purple-500/20 text-purple-400" : "hover:bg-purple-50 text-purple-600")}
                           title="Manage Waterfall Stages"
                         >
@@ -260,23 +265,28 @@ export default function TaskList() {
                       )}
                       <Link 
                         to={`/teams?project=${encodeURIComponent(task.title)}`}
+                        onClick={(e) => e.stopPropagation()}
                         className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-indigo-500/20 text-indigo-400" : "hover:bg-indigo-50 text-indigo-600")}
                         title="Create Team"
                       >
                         <Users className="w-4 h-4" />
                       </Link>
                       <button 
-                        onClick={() => setFlowTask(task)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFlowTask(task);
+                        }}
                         className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-emerald-500/20 text-emerald-400" : "hover:bg-emerald-50 text-emerald-600")}
                         title="View Project Flow"
                       >
                         <GitMerge className="w-4 h-4" />
                       </button>
-                      <Link to={`/tasks/edit/${task.id}`} className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-blue-500/20 text-blue-400" : "hover:bg-blue-50 text-blue-600")}>
+                      <Link to={`/tasks/edit/${task.id}`} onClick={(e) => e.stopPropagation()} className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-blue-500/20 text-blue-400" : "hover:bg-blue-50 text-blue-600")}>
                         <Edit className="w-4 h-4" />
                       </Link>
                       <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setTaskToDelete(task.id);
                           setDeleteModalOpen(true);
                         }}

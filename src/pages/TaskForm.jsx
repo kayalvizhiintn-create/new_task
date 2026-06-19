@@ -36,16 +36,9 @@ export default function TaskForm() {
       extraMembers: taskToEdit?.visitorDetails?.extraMembers || [],
       referrerType: taskToEdit?.referrerDetails?.type || 'Internal',
       referrerName: taskToEdit?.referrerDetails?.name || '',
-      referrerCompany: taskToEdit?.referrerDetails?.company || '',
-      referrerRole: taskToEdit?.referrerDetails?.role || '',
-      referrerBioId: taskToEdit?.referrerDetails?.bioId || '',
-      referrerEmail: taskToEdit?.referrerDetails?.email || '',
-      referrerMobile: taskToEdit?.referrerDetails?.mobile || '',
+      referrerDescription: taskToEdit?.referrerDetails?.description || '',
       meetingPersonName: taskToEdit?.meetingPersonDetails?.name || '',
-      meetingPersonRole: taskToEdit?.meetingPersonDetails?.role || '',
-      meetingPersonBioId: taskToEdit?.meetingPersonDetails?.bioId || '',
-      meetingPersonEmail: taskToEdit?.meetingPersonDetails?.email || '',
-      meetingPersonMobile: taskToEdit?.meetingPersonDetails?.mobile || ''
+      meetingPersonDescription: taskToEdit?.meetingPersonDetails?.description || ''
     }
   });
 
@@ -94,18 +87,11 @@ export default function TaskForm() {
       finalData.referrerDetails = {
         type: data.referrerType,
         name: data.referrerName,
-        email: data.referrerEmail,
-        mobile: data.referrerMobile,
-        company: data.referrerType === 'External' ? data.referrerCompany : undefined,
-        role: data.referrerType === 'Internal' ? data.referrerRole : undefined,
-        bioId: data.referrerType === 'Internal' ? data.referrerBioId : undefined
+        description: data.referrerDescription
       };
       finalData.meetingPersonDetails = {
         name: data.meetingPersonName,
-        role: data.meetingPersonRole,
-        bioId: data.meetingPersonBioId,
-        email: data.meetingPersonEmail,
-        mobile: data.meetingPersonMobile
+        description: data.meetingPersonDescription
       };
     }
 
@@ -252,10 +238,7 @@ export default function TaskForm() {
                         onChange={(e) => {
                           const emp = employees.find(emp => emp.name === e.target.value);
                           if (emp) {
-                             setValue('referrerRole', emp.role);
-                             setValue('referrerBioId', emp.bioId);
-                             setValue('referrerEmail', emp.email);
-                             setValue('referrerMobile', emp.mobile);
+                             setValue('referrerDescription', `Role: ${emp.role}\nBio ID: ${emp.bioId}\nEmail: ${emp.email}\nMobile: ${emp.mobile}`);
                           }
                         }}
                       >
@@ -267,31 +250,14 @@ export default function TaskForm() {
                     )}
                   </div>
 
-                  {referrerTypeVal === 'Internal' ? (
-                    <>
-                      <div>
-                        <label className={labelClasses}>Role <span className="text-rose-500">*</span></label>
-                        <input {...register('referrerRole', { required: 'Role is required' })} className={cn(inputClasses, errors.referrerRole && "border-rose-500")} />
-                      </div>
-                      <div>
-                        <label className={labelClasses}>Bio ID <span className="text-rose-500">*</span></label>
-                        <input {...register('referrerBioId', { required: 'Bio ID is required' })} className={cn(inputClasses, errors.referrerBioId && "border-rose-500")} />
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      <label className={labelClasses}>Company Name</label>
-                      <input {...register('referrerCompany')} className={cn(inputClasses)} placeholder="Company Name" />
-                    </div>
-                  )}
-
                   <div>
-                    <label className={labelClasses}>Email</label>
-                    <input type="email" {...register('referrerEmail')} className={cn(inputClasses)} placeholder="Email (Optional)" />
-                  </div>
-                  <div>
-                    <label className={labelClasses}>Mobile <span className="text-rose-500">*</span></label>
-                    <input {...register('referrerMobile', { required: 'Mobile is required' })} className={cn(inputClasses, errors.referrerMobile && "border-rose-500")} />
+                    <label className={labelClasses}>Description</label>
+                    <textarea 
+                      {...register('referrerDescription')} 
+                      rows="4"
+                      className={cn(inputClasses, "resize-y")} 
+                      placeholder="Enter role, company, email, mobile, or other details..." 
+                    />
                   </div>
                 </div>
 
@@ -312,10 +278,7 @@ export default function TaskForm() {
                       onChange={(e) => {
                         const emp = employees.find(emp => emp.name === e.target.value);
                         if (emp) {
-                           setValue('meetingPersonRole', emp.role);
-                           setValue('meetingPersonBioId', emp.bioId);
-                           setValue('meetingPersonEmail', emp.email);
-                           setValue('meetingPersonMobile', emp.mobile);
+                           setValue('meetingPersonDescription', `Role: ${emp.role}\nBio ID: ${emp.bioId}\nEmail: ${emp.email}\nMobile: ${emp.mobile}`);
                         }
                       }}
                     >
@@ -325,20 +288,13 @@ export default function TaskForm() {
                   </div>
 
                   <div>
-                    <label className={labelClasses}>Role <span className="text-rose-500">*</span></label>
-                    <input {...register('meetingPersonRole', { required: 'Role is required' })} className={cn(inputClasses, errors.meetingPersonRole && "border-rose-500")} />
-                  </div>
-                  <div>
-                    <label className={labelClasses}>Bio ID <span className="text-rose-500">*</span></label>
-                    <input {...register('meetingPersonBioId', { required: 'Bio ID is required' })} className={cn(inputClasses, errors.meetingPersonBioId && "border-rose-500")} />
-                  </div>
-                  <div>
-                    <label className={labelClasses}>Email</label>
-                    <input type="email" {...register('meetingPersonEmail')} className={cn(inputClasses)} placeholder="Email (Optional)" />
-                  </div>
-                  <div>
-                    <label className={labelClasses}>Mobile <span className="text-rose-500">*</span></label>
-                    <input {...register('meetingPersonMobile', { required: 'Mobile is required' })} className={cn(inputClasses, errors.meetingPersonMobile && "border-rose-500")} />
+                    <label className={labelClasses}>Description</label>
+                    <textarea 
+                      {...register('meetingPersonDescription')} 
+                      rows="4"
+                      className={cn(inputClasses, "resize-y")} 
+                      placeholder="Enter role, bio ID, email, mobile, or other details..." 
+                    />
                   </div>
                 </div>
               </div>

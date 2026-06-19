@@ -5,7 +5,8 @@ import { cn } from '../utils/cn';
 import {
   Briefcase, CheckCircle2, Clock, AlertCircle, TrendingUp, FolderGit2, RefreshCcw,
   Hourglass, PauseCircle, XCircle, ChevronLeft, ChevronRight, Eye, Sparkles,
-  Activity, AlertTriangle, PlusSquare, Target, Calendar
+  Activity, AlertTriangle, PlusSquare, Target, Calendar,
+  ClipboardCheck, FilePlus, PlayCircle, Hand, AlarmClock, CalendarPlus, ListTodo
 } from 'lucide-react';
 
 
@@ -223,13 +224,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 lg:gap-6 mt-1">
-        <StatCard title="Open for review" value={openForReviewTasks} icon={Eye} gradientFrom="from-zoho-yellow" gradientTo="to-zoho-yellow-dark" onClick={() => navigate('/tasks?status=Open for review')} />
-        <StatCard title="New Task" value={tasks.filter(t => t.status === 'New Task').length} icon={Sparkles} gradientFrom="from-zoho-green" gradientTo="to-zoho-green-dark" onClick={() => navigate('/tasks?status=New Task')} />
-        <StatCard title="In Progress" value={inProgressTasks} icon={Activity} gradientFrom="from-zoho-blue" gradientTo="to-zoho-blue-dark" onClick={() => navigate('/tasks?status=In Progress')} />
-        <StatCard title="On-hold" value={onHoldTasks} icon={PauseCircle} gradientFrom="from-zoho-dark-grey" gradientTo="to-zoho-dark-grey-dark" onClick={() => navigate('/tasks?status=On-hold')} />
-        <StatCard title="Overdue" value={overdueTasks} icon={AlertTriangle} gradientFrom="from-zoho-red" gradientTo="to-zoho-red-dark" onClick={() => navigate('/tasks?status=All')} />
-        <StatCard title="Today created" value={todayCreatedTasks} icon={PlusSquare} gradientFrom="from-zoho-violet" gradientTo="to-zoho-violet-dark" onClick={() => navigate('/tasks')} />
-        <StatCard title="Today's task" value={todayDeadlinedTasks} icon={Target} gradientFrom="from-zoho-wine" gradientTo="to-zoho-wine-dark" onClick={() => navigate('/tasks')} />
+        <StatCard title="Open for review" value={openForReviewTasks} icon={ClipboardCheck} gradientFrom="from-zoho-yellow" gradientTo="to-zoho-yellow-dark" onClick={() => navigate('/tasks?status=Open for review')} />
+        <StatCard title="New Task" value={tasks.filter(t => t.status === 'New Task').length} icon={FilePlus} gradientFrom="from-zoho-green" gradientTo="to-zoho-green-dark" onClick={() => navigate('/tasks?status=New Task')} />
+        <StatCard title="In Progress" value={inProgressTasks} icon={PlayCircle} gradientFrom="from-zoho-blue" gradientTo="to-zoho-blue-dark" onClick={() => navigate('/tasks?status=In Progress')} />
+        <StatCard title="On-hold" value={onHoldTasks} icon={Hand} gradientFrom="from-zoho-dark-grey" gradientTo="to-zoho-dark-grey-dark" onClick={() => navigate('/tasks?status=On-hold')} />
+        <StatCard title="Overdue" value={overdueTasks} icon={AlarmClock} gradientFrom="from-zoho-red" gradientTo="to-zoho-red-dark" onClick={() => navigate('/tasks?status=All')} />
+        <StatCard title="Today created" value={todayCreatedTasks} icon={CalendarPlus} gradientFrom="from-zoho-violet" gradientTo="to-zoho-violet-dark" onClick={() => navigate('/tasks')} />
+        <StatCard title="Today's task" value={todayDeadlinedTasks} icon={ListTodo} gradientFrom="from-zoho-wine" gradientTo="to-zoho-wine-dark" onClick={() => navigate('/tasks')} />
       </div>
 
       <div className="pt-6">
