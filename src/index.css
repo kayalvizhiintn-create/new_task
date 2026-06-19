@@ -1,12 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Outfit', sans-serif;
+  --font-sans: 'Poppins', sans-serif;
   --color-bg-start: #0f172a;
   --color-bg-end: #1e1b4b;
+  --color-zoho-red: #E42527;
+  --color-zoho-red-dark: #B31D1F;
+  --color-zoho-green: #089949;
+  --color-zoho-green-dark: #067839;
+  --color-zoho-blue: #226DB4;
+  --color-zoho-blue-dark: #1A558C;
+  --color-zoho-yellow: #F9B21D;
+  --color-zoho-yellow-dark: #D49718;
+  --color-zoho-dark-grey: #333333;
+  --color-zoho-dark-grey-dark: #1A1A1A;
+  --color-zoho-violet: #8E24AA;
+  --color-zoho-violet-dark: #6A1B9A;
+  --color-zoho-wine: #800020;
+  --color-zoho-wine-dark: #5E0018;
 }
 
 body {

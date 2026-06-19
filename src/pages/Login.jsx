@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { Lock, UserCircle, ArrowRight, ShieldCheck, CheckCircle2, LayoutDashboard } from 'lucide-react';
+import logo1 from '../assets/logo1.jpg';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -93,11 +94,9 @@ export default function Login() {
       )}>
         
         <div className="flex flex-col items-center mb-10 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center mb-6 shadow-xl shadow-blue-500/30">
-            <LayoutDashboard className="w-8 h-8 text-white" />
-          </div>
+          <img src={logo1} alt="NavaNala Logo" className="w-16 h-16 rounded-2xl object-contain bg-white p-1 mb-6 shadow-xl shadow-blue-500/30" />
           <h1 className={cn("text-3xl sm:text-4xl font-extrabold tracking-tight transition-colors duration-700", isDarkMode ? "text-white" : "text-slate-900")}>
-            TaskMaster
+            NavaNala
           </h1>
           <p className={cn("mt-3 text-base font-medium max-w-sm transition-colors duration-700", isDarkMode ? "text-slate-400" : "text-slate-500")}>
             Authenticate your credentials to access the enterprise workspace.

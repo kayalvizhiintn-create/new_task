@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, ListTodo, PlusCircle, Sun, Moon, Menu, Users, UserPlus, LogOut, ChevronLeft, Activity, Settings, Bell } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
+import logo1 from '../assets/logo1.jpg';
 
 export default function DashboardLayout() {
   const { isDarkMode, toggleDarkMode, logout, currentUser, tasks } = useStore();
@@ -46,10 +47,8 @@ export default function DashboardLayout() {
       )}>
         <div className={cn("h-20 flex items-center justify-between px-6 border-b border-slate-800/50")}>
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-lg shadow-blue-500/30 flex items-center justify-center flex-shrink-0">
-              <div className="w-3 h-3 rounded-full bg-white" />
-            </div>
-            {isSidebarOpen && <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent whitespace-nowrap">TaskMaster</span>}
+            <img src={logo1} alt="NavaNala Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 flex-shrink-0 shadow-lg" />
+            {isSidebarOpen && <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent whitespace-nowrap">NavaNala</span>}
           </div>
           
           <div className="flex items-center gap-2">
@@ -150,11 +149,9 @@ export default function DashboardLayout() {
         <header className={cn("md:hidden h-16 border-b flex items-center justify-between px-4 z-30",
           isDarkMode ? "bg-[#0F172A] border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
         )}>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-lg shadow-blue-500/30 flex items-center justify-center flex-shrink-0">
-              <div className="w-3 h-3 rounded-full bg-white" />
-            </div>
-            <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent whitespace-nowrap">TaskMaster</span>
+          <div className="flex items-center gap-3">
+            <img src={logo1} alt="NavaNala Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 flex-shrink-0 shadow-lg" />
+            <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent whitespace-nowrap">NavaNala</span>
           </div>
           <button 
             onClick={() => setIsSidebarOpen(true)}

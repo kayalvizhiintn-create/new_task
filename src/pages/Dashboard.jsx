@@ -60,8 +60,18 @@ export default function Dashboard() {
 
   const allCategories = Object.keys(categories || {});
 
-
-
+  const getMetricButtonClass = (label) => {
+    const baseClass = "px-3 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200 shadow-md hover:scale-105 ";
+    if (label === 'Open for review') return baseClass + "bg-zoho-yellow hover:bg-zoho-yellow-dark text-white";
+    if (label === 'New Task') return baseClass + "bg-zoho-green hover:bg-zoho-green-dark text-white";
+    if (label === 'In Progress') return baseClass + "bg-zoho-blue hover:bg-zoho-blue-dark text-white";
+    if (label === 'On-hold') return baseClass + "bg-zoho-dark-grey hover:bg-[#1a1a1a] text-white";
+    if (label === 'Overdue') return baseClass + "bg-zoho-red hover:bg-zoho-red-dark text-white";
+    if (label === 'Today created') return baseClass + "bg-zoho-violet hover:bg-zoho-violet-dark text-white";
+    if (label === "Today's task") return baseClass + "bg-zoho-wine hover:bg-zoho-wine-dark text-white";
+    if (label === 'Total') return baseClass + "bg-slate-800 hover:bg-black text-white dark:bg-slate-600 dark:hover:bg-slate-500";
+    return baseClass + "bg-indigo-600 hover:bg-indigo-700 text-white";
+  };
 
   const renderCalendar = () => {
     const todayObj = new Date();
@@ -211,22 +221,15 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-8 animate-[fadeIn_0.5s_ease-out]">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        {/* <div>
-          <h1 className={cn("text-4xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Dashboard overview</h1>
-          <p className={cn("mt-2 font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>Welcome back. Here's what's happening today.</p>
-        </div> */}
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 lg:gap-6">
-        <StatCard title="Open for review" value={openForReviewTasks} icon={Eye} gradientFrom="from-amber-400" gradientTo="to-orange-600" onClick={() => navigate('/tasks?status=Open for review')} />
-        <StatCard title="New Task" value={tasks.filter(t => t.status === 'New Task').length} icon={Sparkles} gradientFrom="from-emerald-400" gradientTo="to-emerald-600" onClick={() => navigate('/tasks?status=New Task')} />
-        <StatCard title="In Progress" value={inProgressTasks} icon={Activity} gradientFrom="from-blue-400" gradientTo="to-indigo-600" onClick={() => navigate('/tasks?status=In Progress')} />
-        <StatCard title="On-hold" value={onHoldTasks} icon={PauseCircle} gradientFrom="from-slate-400" gradientTo="to-slate-600" onClick={() => navigate('/tasks?status=On-hold')} />
-        <StatCard title="Overdue" value={overdueTasks} icon={AlertTriangle} gradientFrom="from-rose-400" gradientTo="to-rose-600" onClick={() => navigate('/tasks?status=All')} />
-        <StatCard title="Today created" value={todayCreatedTasks} icon={PlusSquare} gradientFrom="from-purple-400" gradientTo="to-purple-600" onClick={() => navigate('/tasks')} />
-        <StatCard title="Today's task" value={todayDeadlinedTasks} icon={Target} gradientFrom="from-cyan-400" gradientTo="to-cyan-600" onClick={() => navigate('/tasks')} />
+    <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 lg:gap-6 mt-1">
+        <StatCard title="Open for review" value={openForReviewTasks} icon={Eye} gradientFrom="from-zoho-yellow" gradientTo="to-zoho-yellow-dark" onClick={() => navigate('/tasks?status=Open for review')} />
+        <StatCard title="New Task" value={tasks.filter(t => t.status === 'New Task').length} icon={Sparkles} gradientFrom="from-zoho-green" gradientTo="to-zoho-green-dark" onClick={() => navigate('/tasks?status=New Task')} />
+        <StatCard title="In Progress" value={inProgressTasks} icon={Activity} gradientFrom="from-zoho-blue" gradientTo="to-zoho-blue-dark" onClick={() => navigate('/tasks?status=In Progress')} />
+        <StatCard title="On-hold" value={onHoldTasks} icon={PauseCircle} gradientFrom="from-zoho-dark-grey" gradientTo="to-zoho-dark-grey-dark" onClick={() => navigate('/tasks?status=On-hold')} />
+        <StatCard title="Overdue" value={overdueTasks} icon={AlertTriangle} gradientFrom="from-zoho-red" gradientTo="to-zoho-red-dark" onClick={() => navigate('/tasks?status=All')} />
+        <StatCard title="Today created" value={todayCreatedTasks} icon={PlusSquare} gradientFrom="from-zoho-violet" gradientTo="to-zoho-violet-dark" onClick={() => navigate('/tasks')} />
+        <StatCard title="Today's task" value={todayDeadlinedTasks} icon={Target} gradientFrom="from-zoho-wine" gradientTo="to-zoho-wine-dark" onClick={() => navigate('/tasks')} />
       </div>
 
       <div className="pt-6">
@@ -234,27 +237,27 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 lg:gap-8 items-start">
           <div className="xl:col-span-3 space-y-6">
-            <div className={cn("rounded-lg border overflow-hidden shadow-md transition-all duration-300 backdrop-blur-xl",
+            <div className={cn("rounded-xl border shadow-md transition-all duration-300 backdrop-blur-xl overflow-hidden",
               isDarkMode ? "bg-slate-900/60 border-slate-700/50" : "bg-white/90 border-slate-200"
             )}>
-              <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="w-full">
                 <table className="w-full text-left text-sm">
                   <thead className={cn("border-b-2", isDarkMode ? "bg-slate-800/90 border-slate-600" : "bg-slate-100 border-slate-300")}>
                     <tr>
-                      <th className={cn("px-6 py-4 font-black uppercase tracking-wider text-xs", isDarkMode ? "text-slate-300" : "text-slate-700")}>Category</th>
+                      <th className={cn("px-4 py-6 font-black uppercase tracking-wider text-xs", isDarkMode ? "text-slate-300" : "text-slate-700")}>Category</th>
                       {INITIAL_DASHBOARD_METRICS.map(metric => (
-                        <th key={metric} className={cn("px-4 py-4 font-black uppercase tracking-wider text-[10px] md:text-xs text-center", isDarkMode ? "text-slate-300" : "text-slate-700")}>{metric}</th>
+                        <th key={metric} className={cn("px-2 py-6 font-black uppercase tracking-wider text-[10px] md:text-xs text-center leading-tight", isDarkMode ? "text-slate-300" : "text-slate-700")}>{metric}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className={cn("divide-y", isDarkMode ? "divide-slate-700" : "divide-slate-200")}>
+                  <tbody className={cn("divide-y", isDarkMode ? "divide-slate-700" : "divide-slate-100")}>
                     {allCategories.map((cat, idx) => {
                       return (
                         <tr key={cat} className={cn("transition-all duration-300 group cursor-default",
                           isDarkMode ? "hover:bg-slate-800/80" : "hover:bg-slate-50",
                           idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/40" : "bg-slate-50/50")
                         )}>
-                          <td className={cn("px-6 py-4 font-bold text-sm border-r", isDarkMode ? "text-slate-100 border-slate-800/50" : "text-slate-900 border-slate-100")}>{cat}</td>
+                          <td className={cn("px-4 py-6 font-semibold text-sm", isDarkMode ? "text-slate-200" : "text-slate-700")}>{cat}</td>
                           {INITIAL_DASHBOARD_METRICS.map(metricLabel => {
                             let filterFn;
                             if (metricLabel === 'Open for review') {
@@ -273,13 +276,15 @@ export default function Dashboard() {
 
                             const count = tasks.filter(t => t.category === cat && filterFn(t)).length;
                             return (
-                              <td key={metricLabel} className="px-4 py-4 font-semibold text-center">
+                              <td key={metricLabel} className="px-2 py-6 text-center">
                                 {count > 0 ? (
-                                  <button onClick={() => navigate(`/tasks?category=${encodeURIComponent(cat)}${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `&status=${encodeURIComponent(metricLabel)}` : ''}`)} className={cn("px-4 py-2 rounded-lg text-sm font-bold cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-md",
-                                    isDarkMode ? "bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/40 hover:shadow-indigo-500/20" : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200 hover:shadow-indigo-200/50"
-                                  )}>{count}</button>
+                                  <button onClick={() => navigate(`/tasks?category=${encodeURIComponent(cat)}${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `&status=${encodeURIComponent(metricLabel)}` : ''}`)} 
+                                    className={getMetricButtonClass(metricLabel)}
+                                  >
+                                    {count}
+                                  </button>
                                 ) : (
-                                  <span className={cn("font-black text-base", isDarkMode ? "text-white" : "text-black")}>0</span>
+                                  <span className={cn("font-medium text-sm", isDarkMode ? "text-slate-600" : "text-slate-400")}>0</span>
                                 )}
                               </td>
                             );
@@ -288,9 +293,9 @@ export default function Dashboard() {
                       );
                     })}
                   </tbody>
-                  <tfoot className={cn("border-t-2", isDarkMode ? "bg-slate-800/90 border-slate-600" : "bg-slate-100 border-slate-300")}>
-                    <tr>
-                      <td className={cn("px-6 py-4 font-black text-sm border-r", isDarkMode ? "text-slate-100 border-slate-700" : "text-slate-900 border-slate-200")}>TOTAL</td>
+                  <tfoot className={cn("border-t", isDarkMode ? "bg-slate-800/80 border-slate-700" : "bg-slate-50 border-slate-200")}>
+                    <tr className="group">
+                      <td className={cn("px-4 py-6 font-bold text-sm", isDarkMode ? "text-slate-200" : "text-slate-800")}>TOTAL</td>
                       {INITIAL_DASHBOARD_METRICS.map(metricLabel => {
                         let filterFn;
                         if (metricLabel === 'Open for review') {
@@ -309,13 +314,15 @@ export default function Dashboard() {
 
                         const count = tasks.filter(t => filterFn(t)).length;
                         return (
-                          <td key={metricLabel} className="px-4 py-4 text-center">
+                          <td key={metricLabel} className="px-2 py-6 text-center">
                             {count > 0 ? (
-                              <button onClick={() => navigate(`/tasks?${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `status=${encodeURIComponent(metricLabel)}` : ''}`)} className={cn("px-4 py-2 rounded-lg text-sm font-black cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-md",
-                                isDarkMode ? "bg-slate-700 text-slate-100 hover:bg-slate-600 hover:shadow-slate-900/50" : "bg-slate-800 text-white shadow-sm hover:shadow-md hover:bg-slate-700"
-                              )}>{count}</button>
+                              <button onClick={() => navigate(`/tasks?${metricLabel !== 'Total' && metricLabel !== 'Today created' && metricLabel !== "Today's task" ? `status=${encodeURIComponent(metricLabel)}` : ''}`)} 
+                                className={getMetricButtonClass(metricLabel)}
+                              >
+                                {count}
+                              </button>
                             ) : (
-                              <span className={cn("font-black text-base", isDarkMode ? "text-white" : "text-black")}>0</span>
+                              <span className={cn("font-medium text-sm", isDarkMode ? "text-slate-600" : "text-slate-400")}>0</span>
                             )}
                           </td>
                         );
