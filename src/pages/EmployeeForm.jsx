@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { ArrowLeft, Save, User, Shield, MapPin, Key } from 'lucide-react';
+import { employeeService } from '../services/employeeService';
+import { roleService } from '../services/roleService';
 
 const SectionHeader = ({ icon: Icon, title, subtitle, isDarkMode }) => (
   <div className="flex items-start gap-4 mb-8">
@@ -20,22 +22,63 @@ const SectionHeader = ({ icon: Icon, title, subtitle, isDarkMode }) => (
 export default function EmployeeForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { employees, addEmployee, updateEmployee, isDarkMode, roles, places } = useStore();
+  const { isDarkMode, places } = useStore(); // roles removed from useStore
   
   const isEditMode = Boolean(id);
-  const empToEdit = isEditMode ? employees.find(e => e.id === id) : null;
+  const [loading, setLoading] = useState(isEditMode);
+  const [apiRoles, setApiRoles] = useState([]);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: {
-      name: empToEdit?.name || '',
-      email: empToEdit?.email || '',
-      avatar: empToEdit?.avatar || '',
-      bioId: empToEdit?.bioId || '',
-      password: empToEdit?.password || '',
-      place: empToEdit?.place || '',
-      role: empToEdit?.role || ''
+      name: '',
+      email: '',
+      avatar: '',
+      bioId: '',
+      password: '',
+      place: '',
+      role: '' // This will now store the roleId as string
     }
   });
+
+  useEffect(() => {
+    // Fetch dynamic roles from API
+    const fetchRoles = async () => {
+      try {
+        const data = await roleService.getAllRoles();
+        const rolesArr = Array.isArray(data) ? data : (data?.data || data?.items || []);
+        setApiRoles(rolesArr);
+      } catch(e) {
+        console.error("Error fetching roles", e);
+      }
+    };
+    fetchRoles();
+
+    if (isEditMode) {
+      const fetchEmp = async () => {
+        try {
+          const res = await employeeService.getEmployeeById(id);
+          let data = res.data || res;
+          if (Array.isArray(data)) data = data[0] || {};
+          else if (data && Array.isArray(data.items)) data = data.items[0] || {};
+          
+          reset({
+            name: data.employeeName || data.name || data.empName || '',
+            email: data.email || '',
+            avatar: data.avatar || '',
+            bioId: data.bioid || data.bioId || data.empBioId || data.employeeId || '',
+            password: data.password || '',
+            place: data.location || data.place || data.workPlace || '',
+            role: data.roleId?.toString() || data.role || data.roleName || ''
+          });
+        } catch (error) {
+          console.error("Error fetching employee", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchEmp();
+    }
+  }, [id, isEditMode, reset]);
 
   const avatarImage = watch('avatar');
 
@@ -50,13 +93,29 @@ export default function EmployeeForm() {
     }
   };
 
-  const onSubmit = (data) => {
-    if (isEditMode) {
-      updateEmployee(id, data);
-    } else {
-      addEmployee(data);
+  const onSubmit = async (data) => {
+    try {
+      // Map to exact required backend format
+      const payload = {
+        employeeId: isEditMode ? parseInt(id, 10) : 0,
+        employeeName: data.name,
+        bioid: parseInt(data.bioId, 10) || 0,
+        email: data.email,
+        password: data.password,
+        roleId: parseInt(data.role, 10) || 0,
+        location: data.place
+      };
+
+      if (isEditMode) {
+        await employeeService.updateEmployee(id, payload);
+      } else {
+        await employeeService.createEmployee(payload);
+      }
+      navigate('/employees');
+    } catch (error) {
+      console.error("Failed to save employee", error);
+      alert("Failed to save employee. Please check console.");
     }
-    navigate('/employees');
   };
 
   const inputClasses = cn(
@@ -78,11 +137,14 @@ export default function EmployeeForm() {
         <div>
           <h1 className={cn("text-4xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>{isEditMode ? 'Edit Employee' : 'Add New Employee'}</h1>
           <p className={cn("mt-2 font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>
-            {isEditMode ? `Updating details for ${id}` : 'Create a new employee profile in the system.'}
+            {isEditMode ? `Updating details for employee` : 'Create a new employee profile in the system.'}
           </p>
         </div>
       </div>
 
+      {loading ? (
+        <div className="text-center p-16 font-bold text-slate-500">Loading employee details...</div>
+      ) : (
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" autoComplete="off">
         
         {/* Personal Details Section */}
@@ -181,7 +243,11 @@ export default function EmployeeForm() {
                 className={cn(inputClasses, "appearance-none cursor-pointer", errors.role && "border-rose-500")}
               >
                 <option value="">Select Role</option>
-                {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                {apiRoles.map(r => {
+                  const roleId = r.id || r._id || r.roleId || r.value;
+                  const roleName = r.name || r.roleName || r.title || r.value;
+                  return <option key={roleId} value={roleId}>{roleName}</option>;
+                })}
               </select>
               {errors.role && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.role.message}</p>}
             </div>
@@ -224,6 +290,7 @@ export default function EmployeeForm() {
         </div>
         
       </form>
+      )}
     </div>
   );
 }

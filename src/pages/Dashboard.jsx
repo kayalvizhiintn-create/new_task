@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, INITIAL_DASHBOARD_METRICS } from '../store/useStore';
 import { cn } from '../utils/cn';
+import { taskService } from '../services/taskService';
+import { categoryService } from '../services/categoryService';
 import {
   Briefcase, CheckCircle2, Clock, AlertCircle, TrendingUp, FolderGit2, RefreshCcw,
   Hourglass, PauseCircle, XCircle, ChevronLeft, ChevronRight, Eye, Sparkles,
@@ -42,24 +44,72 @@ const StatCard = ({ title, value, icon: Icon, gradientFrom, gradientTo, onClick 
 
 
 export default function Dashboard() {
-  const { tasks, isDarkMode, categories } = useStore();
+  const { isDarkMode } = useStore();
   const navigate = useNavigate();
+  const [tasks, setTasks] = useState([]);
+  const [apiCategories, setApiCategories] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const openForReviewTasks = tasks.filter(t => t.status === 'Open for review').length;
-  const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length;
-  const onHoldTasks = tasks.filter(t => t.status === 'On-hold').length;
+  React.useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [res, catsRes] = await Promise.all([
+          taskService.getAllTasks().catch(() => []),
+          categoryService.getAllCategories().catch(() => [])
+        ]);
+        setTasks(Array.isArray(res) ? res : (res?.data || []));
+        const cats = Array.isArray(catsRes) ? catsRes : (catsRes?.data || catsRes?.items || []);
+        setApiCategories(cats);
+      } catch (error) {
+        console.error("Error fetching data for dashboard", error);
+      } finally {
+        setLoadingTasks(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const getCategoryName = (idOrName) => {
+    if (!idOrName && idOrName !== 0) return 'No Category';
+    const cat = apiCategories.find(c => String(c.categoryId || c.id || c._id) === String(idOrName));
+    return cat ? (cat.categoryName || cat.name) : idOrName;
+  };
+
+  const getStatusName = (t) => t.statusName || t.status || 'New Task';
+  
+  const matchesStatus = (t, target) => {
+    const s = getStatusName(t).toLowerCase().trim();
+    if (target === 'review') return s.includes('review');
+    if (target === 'progress') return s.includes('progress') || s.includes('going');
+    if (target === 'hold') return s.includes('hold') || s.includes('pause') || s.includes('pending');
+    if (target === 'completed') return s.includes('complete') || s.includes('done') || s.includes('close');
+    if (target === 'cancelled') return s.includes('cancel') || s.includes('reject');
+    if (target === 'new') return s === 'new task' || s === 'new' || s === 'open' || s.includes('assigned');
+    return s === target.toLowerCase();
+  };
+
+  const openForReviewTasks = tasks.filter(t => matchesStatus(t, 'review')).length;
+  const inProgressTasks = tasks.filter(t => matchesStatus(t, 'progress')).length;
+  const onHoldTasks = tasks.filter(t => matchesStatus(t, 'hold')).length;
+  const newTaskCount = tasks.filter(t => matchesStatus(t, 'new')).length;
 
   const today = new Date().toISOString().split('T')[0];
   const overdueTasks = tasks.filter(t =>
-    t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status)
+    t.dueDate && t.dueDate < today && !matchesStatus(t, 'completed') && !matchesStatus(t, 'cancelled')
   ).length;
 
-  const todayCreatedTasks = tasks.filter(t => t.createdAt && t.createdAt.startsWith(today)).length;
-  const todayDeadlinedTasks = tasks.filter(t => t.dueDate === today).length;
+  const todayCreatedTasks = tasks.filter(t => {
+    const createdDate = t.createdAt || t.createdDate || t.dateCreated;
+    return createdDate && createdDate.startsWith(today);
+  }).length;
+  const todayDeadlinedTasks = tasks.filter(t => t.dueDate && t.dueDate.startsWith(today)).length;
 
-  const allCategories = Object.keys(categories || {});
+  const categoryNamesList = apiCategories.length > 0 
+    ? apiCategories.map(c => c.categoryName || c.name || c.id) 
+    : ['Development', 'Events', 'Support', 'Hardware Sales', 'Purchase', 'Zoho', 'Visits'];
+  const allCategories = Array.from(new Set(categoryNamesList)).filter(Boolean);
 
   const getMetricButtonClass = (label) => {
     const baseClass = "px-3 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200 shadow-md hover:scale-105 ";
@@ -198,12 +248,12 @@ export default function Dashboard() {
 
             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
               {tasksByDate[selectedDate] ? tasksByDate[selectedDate].map(task => (
-                <div key={task.id} className={cn("p-4 rounded-2xl border text-left cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-md", isDarkMode ? "bg-slate-800/60 border-slate-700 hover:bg-slate-700/80" : "bg-white border-slate-100 hover:border-slate-200 shadow-sm")} onClick={() => navigate(`/tasks/edit/${task.id}`)}>
-                  <p className={cn("text-xs font-black mb-1.5 uppercase tracking-wide", getPriorityColor(task.priority).split(' ')[0])}>{task.priority} Priority</p>
-                  <p className={cn("text-base font-bold mb-3 line-clamp-1", isDarkMode ? "text-slate-100" : "text-slate-800")}>{task.title}</p>
+                <div key={task.id || task.taskId} className={cn("p-4 rounded-2xl border text-left cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-md", isDarkMode ? "bg-slate-800/60 border-slate-700 hover:bg-slate-700/80" : "bg-white border-slate-100 hover:border-slate-200 shadow-sm")} onClick={() => navigate(`/tasks/view/${task.id || task.taskId}`)}>
+                  <p className={cn("text-xs font-black mb-1.5 uppercase tracking-wide", getPriorityColor(task.priorityName || task.priority).split(' ')[0])}>{task.priorityName || task.priority} Priority</p>
+                  <p className={cn("text-base font-bold mb-3 line-clamp-1", isDarkMode ? "text-slate-100" : "text-slate-800")}>{task.title || task.taskDesc}</p>
                   <div className="flex items-center justify-between">
-                    <span className={cn("text-xs font-bold px-2 py-1 rounded-md", isDarkMode ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600")}>{task.category}</span>
-                    <StatusBadge status={task.status} />
+                    <span className={cn("text-xs font-bold px-2 py-1 rounded-md", isDarkMode ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600")}>{task.categoryName || getCategoryName(task.category || task.categoryId)}</span>
+                    <StatusBadge status={getStatusName(task)} />
                   </div>
                 </div>
               )) : (
@@ -225,7 +275,7 @@ export default function Dashboard() {
     <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 lg:gap-6 mt-1">
         <StatCard title="Open for review" value={openForReviewTasks} icon={ClipboardCheck} gradientFrom="from-zoho-yellow" gradientTo="to-zoho-yellow-dark" onClick={() => navigate('/tasks?status=Open for review')} />
-        <StatCard title="New Task" value={tasks.filter(t => t.status === 'New Task').length} icon={FilePlus} gradientFrom="from-zoho-green" gradientTo="to-zoho-green-dark" onClick={() => navigate('/tasks?status=New Task')} />
+        <StatCard title="New Task" value={newTaskCount} icon={FilePlus} gradientFrom="from-zoho-green" gradientTo="to-zoho-green-dark" onClick={() => navigate('/tasks?status=New Task')} />
         <StatCard title="In Progress" value={inProgressTasks} icon={PlayCircle} gradientFrom="from-zoho-blue" gradientTo="to-zoho-blue-dark" onClick={() => navigate('/tasks?status=In Progress')} />
         <StatCard title="On-hold" value={onHoldTasks} icon={Hand} gradientFrom="from-zoho-dark-grey" gradientTo="to-zoho-dark-grey-dark" onClick={() => navigate('/tasks?status=On-hold')} />
         <StatCard title="Overdue" value={overdueTasks} icon={AlarmClock} gradientFrom="from-zoho-red" gradientTo="to-zoho-red-dark" onClick={() => navigate('/tasks?status=All')} />
@@ -262,20 +312,31 @@ export default function Dashboard() {
                           {INITIAL_DASHBOARD_METRICS.map(metricLabel => {
                             let filterFn;
                             if (metricLabel === 'Open for review') {
-                              filterFn = (t) => t.status === 'Open for review';
+                              filterFn = (t) => matchesStatus(t, 'review');
+                            } else if (metricLabel === 'New Task') {
+                              filterFn = (t) => matchesStatus(t, 'new');
+                            } else if (metricLabel === 'In Progress') {
+                              filterFn = (t) => matchesStatus(t, 'progress');
+                            } else if (metricLabel === 'On-hold') {
+                              filterFn = (t) => matchesStatus(t, 'hold');
                             } else if (metricLabel === 'Overdue') {
-                              filterFn = (t) => t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status);
+                              filterFn = (t) => t.dueDate && t.dueDate < today && !matchesStatus(t, 'completed') && !matchesStatus(t, 'cancelled');
                             } else if (metricLabel === 'Today created') {
-                              filterFn = (t) => t.createdAt && t.createdAt.startsWith(today);
+                              filterFn = (t) => {
+                                const createdDate = t.createdAt || t.createdDate || t.dateCreated;
+                                return createdDate && createdDate.startsWith(today);
+                              };
                             } else if (metricLabel === "Today's task") {
-                              filterFn = (t) => t.dueDate === today;
+                              filterFn = (t) => t.dueDate && t.dueDate.startsWith(today);
                             } else if (metricLabel === 'Total') {
-                              filterFn = (t) => ['Open for review', 'New Task', 'In Progress', 'On-hold'].includes(t.status) || (t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status));
+                              filterFn = (t) => matchesStatus(t, 'review') || matchesStatus(t, 'new') || matchesStatus(t, 'progress') || matchesStatus(t, 'hold') || (t.dueDate && t.dueDate < today && !matchesStatus(t, 'completed') && !matchesStatus(t, 'cancelled'));
                             } else {
-                              filterFn = (t) => t.status === metricLabel;
+                              filterFn = (t) => getStatusName(t).toLowerCase() === metricLabel.toLowerCase();
                             }
 
-                            const count = tasks.filter(t => t.category === cat && filterFn(t)).length;
+                            const taskCatName = (t) => (t.categoryName || getCategoryName(t.category || t.categoryId) || '').toLowerCase().trim();
+                            const targetCatName = (cat || '').toLowerCase().trim();
+                            const count = tasks.filter(t => taskCatName(t) === targetCatName && filterFn(t)).length;
                             return (
                               <td key={metricLabel} className="px-2 py-6 text-center">
                                 {count > 0 ? (
@@ -300,17 +361,26 @@ export default function Dashboard() {
                       {INITIAL_DASHBOARD_METRICS.map(metricLabel => {
                         let filterFn;
                         if (metricLabel === 'Open for review') {
-                          filterFn = (t) => t.status === 'Open for review';
+                          filterFn = (t) => matchesStatus(t, 'review');
+                        } else if (metricLabel === 'New Task') {
+                          filterFn = (t) => matchesStatus(t, 'new');
+                        } else if (metricLabel === 'In Progress') {
+                          filterFn = (t) => matchesStatus(t, 'progress');
+                        } else if (metricLabel === 'On-hold') {
+                          filterFn = (t) => matchesStatus(t, 'hold');
                         } else if (metricLabel === 'Overdue') {
-                          filterFn = (t) => t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status);
+                          filterFn = (t) => t.dueDate && t.dueDate < today && !matchesStatus(t, 'completed') && !matchesStatus(t, 'cancelled');
                         } else if (metricLabel === 'Today created') {
-                          filterFn = (t) => t.createdAt && t.createdAt.startsWith(today);
+                          filterFn = (t) => {
+                            const createdDate = t.createdAt || t.createdDate || t.dateCreated;
+                            return createdDate && createdDate.startsWith(today);
+                          };
                         } else if (metricLabel === "Today's task") {
-                          filterFn = (t) => t.dueDate === today;
+                          filterFn = (t) => t.dueDate && t.dueDate.startsWith(today);
                         } else if (metricLabel === 'Total') {
-                          filterFn = (t) => ['Open for review', 'New Task', 'In Progress', 'On-hold'].includes(t.status) || (t.dueDate && t.dueDate < today && !['Completed', 'Cancelled'].includes(t.status));
+                          filterFn = (t) => matchesStatus(t, 'review') || matchesStatus(t, 'new') || matchesStatus(t, 'progress') || matchesStatus(t, 'hold') || (t.dueDate && t.dueDate < today && !matchesStatus(t, 'completed') && !matchesStatus(t, 'cancelled'));
                         } else {
-                          filterFn = (t) => t.status === metricLabel;
+                          filterFn = (t) => getStatusName(t).toLowerCase() === metricLabel.toLowerCase();
                         }
 
                         const count = tasks.filter(t => filterFn(t)).length;

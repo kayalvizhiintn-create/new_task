@@ -4,17 +4,39 @@ import { Link } from 'react-router-dom';
 import { cn } from '../utils/cn';
 import { Search, MapPin, Edit, Trash2, Shield, Plus } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
+import { employeeService } from '../services/employeeService';
 
 export default function EmployeeList() {
-  const { employees, isDarkMode, deleteEmployee } = useStore();
+  const { isDarkMode } = useStore();
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
 
+  const fetchEmployees = async () => {
+    setLoading(true);
+    try {
+      const data = await employeeService.getAllEmployees();
+      // Handle array or object response format safely
+      setEmployees(Array.isArray(data) ? data : (data?.data || data?.items || []));
+    } catch (error) {
+      console.error("Error fetching employees", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchEmployees();
+  }, []);
+
   const filteredEmployees = employees.filter(emp => {
-    return (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const empName = emp.name || emp.empName || emp.employeeName || '';
+    const empIdStr = emp.id || emp.empId || emp.bioid || emp.bioId || emp.employeeId || '';
+    return empName.toLowerCase().includes(searchTerm.toLowerCase()) || 
            (emp.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-           (emp.id || '').toLowerCase().includes(searchTerm.toLowerCase());
+           empIdStr.toString().toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const getRoleColor = (role) => {
@@ -60,44 +82,46 @@ export default function EmployeeList() {
         </div>
       </div>
 
-      {filteredEmployees.length > 0 ? (
+      {loading ? (
+        <div className="text-center p-16 text-slate-500 font-medium">Loading employees from database...</div>
+      ) : filteredEmployees.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-          {filteredEmployees.map((emp) => (
+          {filteredEmployees.map((emp, index) => (
             <div 
-              key={emp.id} 
+              key={emp.id || emp.empId || emp._id || emp.employeeId || index} 
               className={cn("relative overflow-hidden p-6 rounded-3xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group flex flex-col", 
                 isDarkMode ? "bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60" : "bg-white border-slate-100 shadow-sm hover:bg-slate-50"
               )}
             >
               <div className="flex justify-between items-start mb-4 relative z-10">
-                <span className={cn("px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide flex items-center gap-1.5", getRoleColor(emp.role))}>
+                <span className={cn("px-3 py-1.5 rounded-xl text-xs font-bold tracking-wide flex items-center gap-1.5", getRoleColor(emp.role || emp.roleName))}>
                   <Shield className="w-3.5 h-3.5" />
-                  {emp.role}
+                  {emp.role || emp.roleName || 'Employee'}
                 </span>
                 <div className="flex items-center gap-1.5 font-bold text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 px-3 py-1.5 rounded-xl">
-                  <MapPin className={cn("w-3.5 h-3.5", emp.place === 'Remote' ? "text-indigo-500" : "text-emerald-500")} />
-                  {emp.place}
+                  <MapPin className={cn("w-3.5 h-3.5", (emp.place || emp.workPlace || emp.location) === 'Remote' ? "text-indigo-500" : "text-emerald-500")} />
+                  {emp.place || emp.workPlace || emp.location || 'Office'}
                 </div>
               </div>
 
               <div className="flex flex-col items-center mb-6 relative z-10">
                 <div className="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 shadow-md bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold border-white dark:border-slate-800">
                   {emp.avatar ? (
-                    <img src={emp.avatar} alt={emp.name} className="w-full h-full object-cover" />
+                    <img src={emp.avatar} alt={emp.name || emp.empName} className="w-full h-full object-cover" />
                   ) : (
-                    (emp.name || 'U').substring(0, 2).toUpperCase()
+                    (emp.name || emp.empName || emp.employeeName || 'U').substring(0, 2).toUpperCase()
                   )}
                 </div>
-                <h3 className="font-extrabold text-xl text-slate-900 dark:text-slate-100 mb-1">{emp.name || 'Unknown'}</h3>
+                <h3 className="font-extrabold text-xl text-slate-900 dark:text-slate-100 mb-1">{emp.name || emp.empName || emp.employeeName || 'Unknown'}</h3>
                 <p className={cn("text-sm font-medium mb-3", isDarkMode ? "text-slate-400" : "text-slate-500")}>{emp.email}</p>
                 <div className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Bio ID: {emp.bioId}</span>
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Bio ID: {emp.bioid || emp.bioId || emp.empBioId || emp.id || emp.employeeId || 'N/A'}</span>
                 </div>
               </div>
 
               <div className={cn("mt-auto pt-4 border-t flex justify-center gap-4 relative z-10", isDarkMode ? "border-slate-700/50" : "border-slate-100")}>
                 <Link 
-                  to={`/employees/edit/${emp.id}`} 
+                  to={`/employees/edit/${emp.id || emp.empId || emp._id || emp.employeeId}`} 
                   className={cn("flex-1 py-2 flex justify-center items-center gap-2 rounded-xl text-sm font-bold transition-all duration-200", 
                     isDarkMode ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400" : "bg-blue-50 hover:bg-blue-100 text-blue-600"
                   )}
@@ -106,7 +130,7 @@ export default function EmployeeList() {
                 </Link>
                 <button 
                   onClick={() => {
-                    setEmployeeToDelete(emp.id);
+                    setEmployeeToDelete(emp.id || emp.empId || emp._id || emp.employeeId);
                     setDeleteModalOpen(true);
                   }}
                   className={cn("flex-1 py-2 flex justify-center items-center gap-2 rounded-xl text-sm font-bold transition-all duration-200", 
@@ -135,8 +159,17 @@ export default function EmployeeList() {
           setDeleteModalOpen(false);
           setEmployeeToDelete(null);
         }}
-        onConfirm={() => {
-          if (employeeToDelete) deleteEmployee(employeeToDelete);
+        onConfirm={async () => {
+          if (employeeToDelete) {
+            try {
+              // Assume ID could be named id or _id
+              const targetId = employeeToDelete.id || employeeToDelete._id || employeeToDelete;
+              await employeeService.deleteEmployee(targetId);
+              await fetchEmployees();
+            } catch (error) {
+              console.error("Failed to delete employee", error);
+            }
+          }
         }}
         title="Remove Employee"
         message="Are you sure you want to remove this employee? This action cannot be undone."

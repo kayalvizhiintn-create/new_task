@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { ArrowLeft, Briefcase, Calendar, AlignLeft, Edit, CheckCircle2, Clock, Users, Building, FileText, Phone, Mail, FileCheck, AlertCircle } from 'lucide-react';
+import { taskService } from '../services/taskService';
 
 const getPriorityColor = (priority, isDarkMode) => {
   switch(priority) {
@@ -43,9 +44,36 @@ const DetailItem = ({ label, value, isDarkMode }) => (
 export default function TaskView() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tasks, isDarkMode } = useStore();
+  const { isDarkMode } = useStore();
   
-  const task = tasks.find(t => t.id === id);
+  const [task, setTask] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchTask = async () => {
+      try {
+        const res = await taskService.getTaskById(id);
+        let taskData = res?.data || res;
+        if (Array.isArray(taskData)) {
+          taskData = taskData[0];
+        }
+        setTask(taskData);
+      } catch (error) {
+        console.error("Failed to load task details", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTask();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-20 text-slate-500">
+        Loading task details from database...
+      </div>
+    );
+  }
 
   if (!task) {
     return (
@@ -101,9 +129,9 @@ export default function TaskView() {
           <div className={cn("p-6 md:p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
             <SectionHeader icon={Briefcase} title="Core Information" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 mb-8">
-              <DetailItem label="Category" value={task.category} isDarkMode={isDarkMode} />
-              <DetailItem label="Sub Category" value={task.subCategory} isDarkMode={isDarkMode} />
-              <DetailItem label="Assigned By" value={task.assignedBy} isDarkMode={isDarkMode} />
+              <DetailItem label="Category" value={task.category || task.categoryId} isDarkMode={isDarkMode} />
+              <DetailItem label="Sub Category" value={task.subCategory || task.subCategoryId} isDarkMode={isDarkMode} />
+              <DetailItem label="Assigned By" value={task.assignedBy || task.assignBy} isDarkMode={isDarkMode} />
               <DetailItem label="Review To" value={task.reviewTo} isDarkMode={isDarkMode} />
               <DetailItem label="Assigned To" value={task.assignedTo || 'Unassigned'} isDarkMode={isDarkMode} />
               <DetailItem label="Due Date" value={task.dueDate} isDarkMode={isDarkMode} />
@@ -113,7 +141,7 @@ export default function TaskView() {
               <div>
                 <p className={cn("text-xs font-bold uppercase tracking-wider mb-2", isDarkMode ? "text-slate-400" : "text-slate-500")}>Description</p>
                 <div className={cn("p-5 rounded-2xl border text-sm leading-relaxed whitespace-pre-wrap font-medium", isDarkMode ? "bg-slate-900/50 border-slate-700/50 text-slate-300" : "bg-slate-50 border-slate-100 text-slate-700")}>
-                  {task.description || 'No description provided.'}
+                  {task.taskDesc || task.description || 'No description provided.'}
                 </div>
               </div>
               {task.notes && (
@@ -186,7 +214,7 @@ export default function TaskView() {
                 <div className="mt-1"><Clock className={cn("w-5 h-5", isDarkMode ? "text-slate-400" : "text-slate-400")} /></div>
                 <div>
                   <p className={cn("text-xs font-bold uppercase tracking-wider mb-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>Created At</p>
-                  <p className={cn("font-semibold text-sm", isDarkMode ? "text-slate-200" : "text-slate-800")}>{new Date(task.createdAt).toLocaleString()}</p>
+                  <p className={cn("font-semibold text-sm", isDarkMode ? "text-slate-200" : "text-slate-800")}>{task.createdAt ? new Date(task.createdAt).toLocaleString() : 'N/A'}</p>
                 </div>
               </div>
               <div className="flex gap-4 items-start">

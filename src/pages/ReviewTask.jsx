@@ -3,14 +3,46 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { ArrowLeft, CheckCircle2, Briefcase, Calendar, AlignLeft, User } from 'lucide-react';
+import { taskService } from '../services/taskService';
+import { employeeService } from '../services/employeeService';
 
 export default function ReviewTask() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tasks, employees, updateTask, isDarkMode } = useStore();
+  const { isDarkMode } = useStore();
   
-  const taskToEdit = tasks.find(t => t.id === id);
+  const [taskToEdit, setTaskToEdit] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [assignee, setAssignee] = useState('');
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [taskRes, empRes] = await Promise.all([
+          taskService.getTaskById(id).catch(() => null),
+          employeeService.getAllEmployees().catch(() => [])
+        ]);
+        let task = taskRes?.data || taskRes || null;
+        if (Array.isArray(task)) {
+          task = task[0] || null;
+        }
+        setTaskToEdit(task);
+        
+        const emps = Array.isArray(empRes) ? empRes : (empRes?.data || []);
+        setEmployees(emps);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id]);
+
+  if (loading) {
+    return <div className="text-center py-20 text-slate-500">Loading task details...</div>;
+  }
 
   if (!taskToEdit) {
     return (
@@ -21,19 +53,34 @@ export default function ReviewTask() {
     );
   }
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!assignee) {
       alert("Please select an assignee before approving.");
       return;
     }
     
-    // Auto change status to Open upon adding assignee
-    updateTask(id, {
-      assignedTo: assignee,
-      status: 'New Task'
-    });
-    
-    navigate('/tasks');
+    try {
+      const selectedEmp = employees.find(e => (e.employeeName || e.name || '').toString() === assignee.toString() || (e.employeeId || e.id || '').toString() === assignee.toString());
+      
+      const payload = {
+        taskId: parseInt(id, 10) || taskToEdit.taskId || 0,
+        taskUid: taskToEdit.taskUid || taskToEdit.title || '',
+        categoryId: parseInt(taskToEdit.categoryId || taskToEdit.category, 10) || 0,
+        subCategoryId: parseInt(taskToEdit.subCategoryId || taskToEdit.subCategory, 10) || 0,
+        assignBy: parseInt(selectedEmp?.employeeId || selectedEmp?.id || taskToEdit.assignBy, 10) || 0,
+        reviewTo: parseInt(taskToEdit.reviewTo, 10) || 0,
+        priority: parseInt(taskToEdit.priority, 10) || 0,
+        dueDate: taskToEdit.dueDate,
+        status: 1, // Defaulting New Task status ID to 1
+        taskDesc: taskToEdit.taskDesc || taskToEdit.description || taskToEdit.taskUid || taskToEdit.title || '',
+        notes: taskToEdit.notes || ''
+      };
+
+      await taskService.updateTask(id, payload);
+      navigate('/tasks');
+    } catch(e) {
+      console.error("Failed to approve task", e);
+    }
   };
 
   const inputClasses = cn(
@@ -81,23 +128,23 @@ export default function ReviewTask() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="md:col-span-2">
                 <label className={labelClasses}>Task Title</label>
-                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.title}</div>
+                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.title || taskToEdit.taskDesc}</div>
               </div>
               <div>
                 <label className={labelClasses}>Category</label>
-                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.category}</div>
+                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.categoryName || taskToEdit.category}</div>
               </div>
               <div>
                 <label className={labelClasses}>Sub Category</label>
-                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.subCategory}</div>
+                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.subCategoryName || taskToEdit.subCategory}</div>
               </div>
               <div>
                 <label className={labelClasses}>Assigned By</label>
-                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.assignedBy}</div>
+                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.assignByName || taskToEdit.assignedBy}</div>
               </div>
               <div>
                 <label className={labelClasses}>Review Requested To</label>
-                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.reviewTo}</div>
+                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.reviewToName || taskToEdit.reviewTo}</div>
               </div>
             </div>
           </div>
@@ -148,7 +195,7 @@ export default function ReviewTask() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div>
                 <label className={labelClasses}>Priority</label>
-                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.priority}</div>
+                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.priorityName || taskToEdit.priority}</div>
               </div>
               <div>
                 <label className={labelClasses}>Due Date</label>
@@ -156,7 +203,7 @@ export default function ReviewTask() {
               </div>
               <div>
                 <label className={labelClasses}>Current Status</label>
-                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 text-amber-600 dark:text-amber-400")}>{taskToEdit.status}</div>
+                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 text-amber-600 dark:text-amber-400")}>{taskToEdit.statusName || taskToEdit.status}</div>
               </div>
             </div>
           </div>
@@ -192,7 +239,7 @@ export default function ReviewTask() {
                 >
                   <option value="">Select Assignee</option>
                   {employees.map(emp => (
-                    <option key={emp.id} value={emp.name}>{emp.name}</option>
+                    <option key={emp.employeeId || emp.id} value={emp.employeeId || emp.id}>{emp.employeeName || emp.name}</option>
                   ))}
                 </select>
                 <p className={cn("text-xs mt-3", isDarkMode ? "text-slate-400" : "text-slate-500")}>
