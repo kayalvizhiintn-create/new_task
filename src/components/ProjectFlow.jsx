@@ -1,11 +1,16 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { X, GitCommit, Activity, User, PlusCircle, CheckCircle, Clock } from 'lucide-react';
+import { taskChangeStatusService } from '../services/taskChangeStatusService';
+import { employeeService } from '../services/employeeService';
+import { enumService } from '../services/enumService';
 
 export default function ProjectFlow({ task, onClose }) {
   const { isDarkMode } = useStore();
   const modalRef = useRef(null);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Click outside to close
@@ -18,9 +23,68 @@ export default function ProjectFlow({ task, onClose }) {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [onClose]);
 
-  if (!task) return null;
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!task) return;
+      try {
+        setLoading(true);
+        const [changesRes, empsRes, statsRes] = await Promise.all([
+          taskChangeStatusService.getAllChanges().catch(() => []),
+          employeeService.getAllEmployees().catch(() => []),
+          enumService.getStatusDropdown().catch(() => [])
+        ]);
 
-  const history = task.history || [];
+        const changes = Array.isArray(changesRes) ? changesRes : (changesRes?.data || []);
+        const emps = Array.isArray(empsRes) ? empsRes : (empsRes?.data || empsRes?.items || []);
+        const stats = Array.isArray(statsRes) ? statsRes : (statsRes?.data || statsRes?.items || []);
+
+        const empMap = {};
+        emps.forEach(e => {
+          empMap[e.employeeId || e.id || e._id] = e.employeeName || e.name;
+        });
+
+        const statusMap = {};
+        stats.forEach((s, idx) => {
+          if (typeof s === 'string') {
+            statusMap[idx + 1] = s;
+          } else {
+            statusMap[s.statusId || s.id || s.value || (idx + 1)] = s.statusName || s.name || s.value;
+          }
+        });
+
+        const taskIdNum = parseInt(task.taskId || task.id, 10);
+        const filteredChanges = changes.filter(c => parseInt(c.taskId || c.task_id, 10) === taskIdNum);
+
+        const mappedHistory = filteredChanges.map(c => {
+          const statusName = statusMap[c.statusId || c.status] || `Status ${c.statusId || c.status}`;
+          const userName = empMap[c.changedBy || c.created_by] || `Employee ${c.changedBy || c.created_by}`;
+          return {
+            action: 'Status Changed',
+            timestamp: c.createdTime || c.createdAt || new Date().toISOString(),
+            user: userName,
+            details: `Status changed to ${statusName}${c.changeReason ? `\nReason: ${c.changeReason}` : ''}`
+          };
+        });
+
+        const creatorName = empMap[task.assignBy] || task.assignByName || 'System';
+        mappedHistory.push({
+          action: 'Created',
+          timestamp: task.createdTime || task.createdAt || new Date().toISOString(),
+          user: creatorName,
+          details: `Task created with status: ${task.statusName || task.status || 'New Task'}`
+        });
+
+        mappedHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setHistory(mappedHistory);
+      } catch (error) {
+        console.error("Failed to load project flow history", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [task]);
 
   const getActionIcon = (action) => {
     switch (action) {
@@ -54,7 +118,7 @@ export default function ProjectFlow({ task, onClose }) {
         <div className={cn("px-6 py-4 flex items-center justify-between border-b", isDarkMode ? "border-slate-700" : "border-slate-100")}>
           <div>
             <h2 className={cn("text-xl font-bold", isDarkMode ? "text-white" : "text-slate-900")}>Project Flow</h2>
-            <p className={cn("text-sm font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.id} - {task.title}</p>
+            <p className={cn("text-sm font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.taskId || task.id} - {task.taskUid || task.title}</p>
           </div>
           <button 
             onClick={onClose}
@@ -66,7 +130,9 @@ export default function ProjectFlow({ task, onClose }) {
 
         {/* Timeline */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
-          {history.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12 text-slate-500">Loading flow history...</div>
+          ) : history.length === 0 ? (
             <div className="text-center py-12 text-slate-500">No flow history available for this task.</div>
           ) : (
             <div className="relative border-l-2 ml-4 md:ml-8 border-slate-200 dark:border-slate-700 space-y-8">

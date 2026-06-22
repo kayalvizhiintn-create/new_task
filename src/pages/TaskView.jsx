@@ -2,7 +2,10 @@ import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { ArrowLeft, Briefcase, Calendar, AlignLeft, Edit, CheckCircle2, Clock, Users, Building, FileText, Phone, Mail, FileCheck, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, AlignLeft, Edit, CheckCircle2, Clock, Users, Building, FileText, Phone, Mail, FileCheck, AlertCircle, Layers, GitMerge } from 'lucide-react';
+import { formatDistanceToNow, isPast } from 'date-fns';
+import { taskService } from '../services/taskService';
+import ProjectFlow from '../components/ProjectFlow';
 
 const getPriorityColor = (priority, isDarkMode) => {
   switch(priority) {
@@ -40,12 +43,53 @@ const DetailItem = ({ label, value, isDarkMode }) => (
   </div>
 );
 
+const getDueTimeText = (dueDateStr) => {
+  if (!dueDateStr) return '';
+  const dueDate = new Date(dueDateStr);
+  if (isNaN(dueDate)) return '';
+  
+  // Set due date to end of the day for accurate remaining time
+  dueDate.setHours(23, 59, 59, 999);
+  
+  const distance = formatDistanceToNow(dueDate, { addSuffix: false });
+  if (isPast(dueDate)) {
+    return `${distance} overdue`;
+  } else {
+    return `${distance} to go`;
+  }
+};
+
 export default function TaskView() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tasks, isDarkMode } = useStore();
+  const { isDarkMode } = useStore();
   
-  const task = tasks.find(t => t.id === id);
+  const [task, setTask] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [showProjectFlow, setShowProjectFlow] = React.useState(false);
+
+  React.useEffect(() => {
+    const fetchTask = async () => {
+      try {
+        const res = await taskService.getTaskById(id);
+        const taskData = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data || res));
+        setTask(taskData);
+      } catch (error) {
+        console.error("Failed to load task details", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTask();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-20 text-slate-500">
+        Loading task details from database...
+      </div>
+    );
+  }
 
   if (!task) {
     return (
@@ -75,18 +119,36 @@ export default function TaskView() {
           </button>
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <span className="font-black text-blue-600 dark:text-blue-400 tracking-wider text-sm">{task.id}</span>
-              <span className={cn("px-2.5 py-1 rounded-lg text-xs font-bold tracking-wide", getPriorityColor(task.priority, isDarkMode))}>
-                {task.priority} Priority
+              <span className="font-black text-blue-600 dark:text-blue-400 tracking-wider text-sm">{task.taskId || task.id}</span>
+              <span className={cn("px-2.5 py-1 rounded-lg text-xs font-bold tracking-wide", getPriorityColor(task.priorityName || task.priority, isDarkMode))}>
+                {task.priorityName || task.priority} Priority
               </span>
             </div>
-            <h1 className={cn("text-3xl md:text-4xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>{task.title}</h1>
+            <h1 className={cn("text-3xl md:text-4xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>{task.taskUid || task.title}</h1>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <StatusBadge status={task.status} isDarkMode={isDarkMode} />
+          <StatusBadge status={task.statusName || task.status} isDarkMode={isDarkMode} />
+          
+          <button 
+            onClick={() => setShowProjectFlow(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+          >
+            <GitMerge className="w-4 h-4" /> Project Flow
+          </button>
+
+          {((task.categoryName || task.category) === 'Development' && 
+            (task.subCategoryName || task.subCategory) === 'Software Development') && (
+            <Link 
+              to={`/tasks/waterfall/${task.taskId || task.id}`}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-purple-600 hover:bg-purple-700 text-white transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+            >
+              <Layers className="w-4 h-4" /> Project Details
+            </Link>
+          )}
+
           <Link 
-            to={`/tasks/edit/${task.id}`}
+            to={`/tasks/edit/${task.taskId || task.id}`}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5"
           >
             <Edit className="w-4 h-4" /> Edit Task
@@ -101,11 +163,10 @@ export default function TaskView() {
           <div className={cn("p-6 md:p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
             <SectionHeader icon={Briefcase} title="Core Information" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 mb-8">
-              <DetailItem label="Category" value={task.category} isDarkMode={isDarkMode} />
-              <DetailItem label="Sub Category" value={task.subCategory} isDarkMode={isDarkMode} />
-              <DetailItem label="Assigned By" value={task.assignedBy} isDarkMode={isDarkMode} />
-              <DetailItem label="Review To" value={task.reviewTo} isDarkMode={isDarkMode} />
-              <DetailItem label="Assigned To" value={task.assignedTo || 'Unassigned'} isDarkMode={isDarkMode} />
+              <DetailItem label="Category" value={task.categoryName || task.category || task.categoryId} isDarkMode={isDarkMode} />
+              <DetailItem label="Sub Category" value={task.subCategoryName || task.subCategory || task.subCategoryId} isDarkMode={isDarkMode} />
+              <DetailItem label="Assigned By" value={task.assignByName || task.assignedBy || task.assignBy} isDarkMode={isDarkMode} />
+              <DetailItem label="Assigned To" value={task.assignToName || task.assignedTo || 'Unassigned'} isDarkMode={isDarkMode} />
               <DetailItem label="Due Date" value={task.dueDate} isDarkMode={isDarkMode} />
             </div>
 
@@ -113,7 +174,7 @@ export default function TaskView() {
               <div>
                 <p className={cn("text-xs font-bold uppercase tracking-wider mb-2", isDarkMode ? "text-slate-400" : "text-slate-500")}>Description</p>
                 <div className={cn("p-5 rounded-2xl border text-sm leading-relaxed whitespace-pre-wrap font-medium", isDarkMode ? "bg-slate-900/50 border-slate-700/50 text-slate-300" : "bg-slate-50 border-slate-100 text-slate-700")}>
-                  {task.description || 'No description provided.'}
+                  {task.taskDesc || task.description || 'No description provided.'}
                 </div>
               </div>
               {task.notes && (
@@ -128,7 +189,7 @@ export default function TaskView() {
           </div>
 
           {/* Visitor Details if present */}
-          {task.category === 'Visits' && task.visitorDetails && (
+          {(task.categoryName || task.category) === 'Visits' && task.visitorDetails && (
             <div className={cn("p-6 md:p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
               <SectionHeader icon={Users} title="Visitor Details" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
@@ -186,20 +247,47 @@ export default function TaskView() {
                 <div className="mt-1"><Clock className={cn("w-5 h-5", isDarkMode ? "text-slate-400" : "text-slate-400")} /></div>
                 <div>
                   <p className={cn("text-xs font-bold uppercase tracking-wider mb-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>Created At</p>
-                  <p className={cn("font-semibold text-sm", isDarkMode ? "text-slate-200" : "text-slate-800")}>{new Date(task.createdAt).toLocaleString()}</p>
+                  <div className="flex flex-col gap-1.5">
+                    <p className={cn("font-semibold text-sm", isDarkMode ? "text-slate-200" : "text-slate-800")}>
+                      {(() => {
+                        const c = task.createdAt || task.createdTime || task.CreatedTime || task.createdDate || task.dateCreated;
+                        return c ? new Date(c).toLocaleString() : 'N/A';
+                      })()}
+                    </p>
+                    {(() => {
+                      const c = task.createdAt || task.createdTime || task.CreatedTime || task.createdDate || task.dateCreated;
+                      if (!c) return null;
+                      return (
+                        <p className={cn("text-[11px] font-bold px-2 py-1 rounded-md inline-block self-start uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400")}>
+                          {formatDistanceToNow(new Date(c), { addSuffix: true })}
+                        </p>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-4 items-start">
                 <div className="mt-1"><AlertCircle className={cn("w-5 h-5", isDarkMode ? "text-rose-400" : "text-rose-500")} /></div>
                 <div>
                   <p className={cn("text-xs font-bold uppercase tracking-wider mb-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>Due Date</p>
-                  <p className={cn("font-semibold text-sm", isDarkMode ? "text-slate-200" : "text-slate-800")}>{task.dueDate}</p>
+                  <div className="flex flex-col gap-1.5">
+                    <p className={cn("font-semibold text-sm", isDarkMode ? "text-slate-200" : "text-slate-800")}>{task.dueDate || 'N/A'}</p>
+                    {task.dueDate && (
+                      <p className={cn("text-[11px] font-bold px-2 py-1 rounded-md inline-block self-start uppercase tracking-wider", 
+                        isPast(new Date(new Date(task.dueDate).setHours(23,59,59,999))) 
+                          ? "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
+                      )}>
+                        {getDueTimeText(task.dueDate)}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {task.category === 'Visits' && task.referrerDetails && (
+          {(task.categoryName || task.category) === 'Visits' && task.referrerDetails && (
             <div className={cn("p-6 md:p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
               <SectionHeader icon={FileCheck} title="Reference Details" />
               <div className="space-y-4">
@@ -217,7 +305,7 @@ export default function TaskView() {
             </div>
           )}
 
-          {task.category === 'Visits' && task.meetingPersonDetails && (
+          {(task.categoryName || task.category) === 'Visits' && task.meetingPersonDetails && (
             <div className={cn("p-6 md:p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
               <SectionHeader icon={Users} title="Meeting With" />
               <div className="space-y-4">
@@ -236,6 +324,12 @@ export default function TaskView() {
 
         </div>
       </div>
+      {showProjectFlow && (
+        <ProjectFlow 
+          task={task} 
+          onClose={() => setShowProjectFlow(false)} 
+        />
+      )}
     </div>
   );
 }

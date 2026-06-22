@@ -5,6 +5,8 @@ import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { Lock, UserCircle, ArrowRight, ShieldCheck, CheckCircle2, LayoutDashboard } from 'lucide-react';
 import logo1 from '../assets/logo1.jpg';
+import { authService } from '../services/authService';
+import { decodeToken } from '../utils/jwt';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -12,15 +14,49 @@ export default function Login() {
   const isDarkMode = useStore(state => state.isDarkMode);
   
   const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm();
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     setErrorMsg('');
-    const success = login(data.bioId, data.password);
-    if (success) {
-      navigate('/dashboard');
-    } else {
-      setErrorMsg('Access denied. Invalid credentials.');
+    setLoading(true);
+    try {
+      const payload = {
+        bioId: data.bioId,
+        password: data.password
+      };
+      
+      // Call the API endpoint: http://192.23.2.9:8004/api/v1/auth/login
+      const response = await authService.login(payload);
+      
+      // Save token if returned by the backend
+      const token = response?.token || response?.data?.token;
+      let decodedUser = null;
+      if (token) {
+        localStorage.setItem('token', token);
+        decodedUser = decodeToken(token);
+      }
+      
+      if (response?.isSuccess === false || response?.status === false) {
+        setErrorMsg(response?.message || 'Access denied. Invalid credentials.');
+      } else {
+        const userObj = {
+          ...(response?.user || response?.data || {}),
+          ...(decodedUser || {}),
+          bioId: decodedUser?.bioId || data.bioId,
+          name: decodedUser?.name || response?.data?.employeeName || 'User'
+        };
+        // Success: Update Zustand store to reflect authentication
+        useStore.setState({ 
+          isAuthenticated: true, 
+          currentUser: userObj
+        });
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      setErrorMsg(error.response?.data?.message || error.message || 'Server error. Please try again later.');
+    } finally {
+      setLoading(false);
     }
   };
 

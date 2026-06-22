@@ -3,31 +3,137 @@ import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { Activity, Clock, AlertTriangle, X } from 'lucide-react';
 
+import { taskService } from '../services/taskService';
+import { taskChangeStatusService } from '../services/taskChangeStatusService';
+import { enumService } from '../services/enumService';
+
 export default function StatusChange() {
-  const { tasks, employees, updateTask, isDarkMode, statuses } = useStore();
+  const { isDarkMode, statuses, currentUser } = useStore();
+  const [tasks, setTasks] = useState([]);
+  const [apiStatuses, setApiStatuses] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState(null);
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState(false);
 
+  const loadTasks = async () => {
+    setLoadingTasks(true);
+    try {
+      const res = await taskService.getAllTasks();
+      setTasks(Array.isArray(res) ? res : (res?.data || []));
+    } catch (error) {
+      console.error("Error fetching tasks", error);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadTasks();
+    enumService.getStatusDropdown().then(res => {
+      let stats = [];
+      if (Array.isArray(res)) stats = res;
+      else if (Array.isArray(res?.data)) stats = res.data;
+      else if (Array.isArray(res?.items)) stats = res.items;
+      setApiStatuses(stats);
+    }).catch(console.error);
+  }, []);
+
   const handleStatusChange = (taskId, newStatus) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task && task.status === newStatus) return;
+    const task = tasks.find(t => t.id === taskId || t.taskId === taskId);
+    if (task && (task.status === newStatus || task.statusName === newStatus)) return;
 
     setPendingUpdate({ taskId, newStatus });
     setModalOpen(true);
   };
 
-  const confirmStatusChange = () => {
+  const confirmStatusChange = async () => {
     if (!reason.trim()) {
       setReasonError(true);
       return;
     }
     if (pendingUpdate) {
-      updateTask(pendingUpdate.taskId, { 
-        status: pendingUpdate.newStatus,
-        statusReason: reason.trim()
+      let statusId = pendingUpdate.newStatus;
+      const targetStatus = apiStatuses.find(s => {
+        if (typeof s === 'string') return s.toLowerCase() === pendingUpdate.newStatus.toLowerCase();
+        return (s.statusName || s.name || s.value || '').toLowerCase() === pendingUpdate.newStatus.toLowerCase();
       });
+      
+      if (targetStatus && typeof targetStatus !== 'string') {
+        const sid = targetStatus.statusId || targetStatus.id || targetStatus.value;
+        statusId = (typeof sid === 'string' && /^\d+$/.test(sid)) ? parseInt(sid, 10) : (sid || statusId);
+      }
+
+      if (typeof statusId === 'string') {
+        switch (statusId.toLowerCase().trim()) {
+          case 'new task': case 'new': statusId = 2; break;
+          case 'in progress': case 'progress': statusId = 3; break;
+          case 'pending': statusId = 4; break;
+          case 'on-hold': case 'on hold': case 'hold': statusId = 5; break;
+          case 'completed': case 'done': statusId = 6; break;
+          case 'cancelled': case 'cancel': statusId = 7; break;
+          default:
+            const idx = statuses.findIndex(s => s.toLowerCase() === statusId.toLowerCase());
+            if (idx !== -1) {
+              statusId = idx + 1;
+            }
+            break;
+        }
+      }
+      
+      // Force statusId to integer if possible
+      if (typeof statusId === 'string' && /^\d+$/.test(statusId)) {
+        statusId = parseInt(statusId, 10);
+      }
+
+      let empId = currentUser?.employeeId || currentUser?.empId || currentUser?.id || currentUser?.emp_id || 0;
+      if (typeof empId === 'string' && /^\d+$/.test(empId)) {
+        empId = parseInt(empId, 10);
+      } else if (typeof empId === 'string' && empId.startsWith('EMP-')) {
+        empId = 0; // Fallback
+      }
+
+      const taskObj = tasks.find(t => t.id === pendingUpdate.taskId || t.taskId === pendingUpdate.taskId);
+      let realTaskId = taskObj ? (taskObj.taskId || taskObj.id) : pendingUpdate.taskId;
+      if (typeof realTaskId === 'string' && /^\d+$/.test(realTaskId)) {
+        realTaskId = parseInt(realTaskId, 10);
+      }
+
+      try {
+        const payload = {
+          taskChangeId: 0,
+          taskId: realTaskId,
+          statusId: statusId,
+          changedBy: empId,
+          changeReason: reason.trim()
+        };
+        
+        await taskChangeStatusService.createChange(payload);
+      } catch (error) {
+        console.warn("Failed to create change log, but continuing with update", error);
+      }
+
+      try {
+        // Fetch the full task object to ensure we have all required integer IDs (categoryId, etc.)
+        const fullTaskRes = await taskService.getTaskById(realTaskId);
+        const fullTask = Array.isArray(fullTaskRes?.data) ? fullTaskRes.data[0] : (Array.isArray(fullTaskRes) ? fullTaskRes[0] : (fullTaskRes?.data || fullTaskRes));
+
+        if (fullTask) {
+          await taskService.updateTask(realTaskId, {
+            ...fullTask,
+            taskId: realTaskId,
+            status: statusId,
+            statusId: statusId,
+            statusName: pendingUpdate.newStatus
+          });
+        }
+
+        await loadTasks();
+      } catch (error) {
+        console.error("Failed to update task status", error);
+        alert("Failed to update the task status on the server.");
+      }
     }
     setModalOpen(false);
     setPendingUpdate(null);
@@ -42,7 +148,7 @@ export default function StatusChange() {
     setReasonError(false);
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const sortedTasks = [...tasks].sort((a, b) => new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now()));
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -88,22 +194,18 @@ export default function StatusChange() {
                   idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/20" : "bg-slate-50/50")
                 )}>
                   <td className="px-6 py-5">
-                    <p className={cn("font-bold text-base", isDarkMode ? "text-slate-100" : "text-slate-900")}>{task.title}</p>
-                    <p className={cn("text-xs font-medium mt-0.5", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.id}</p>
+                    <p className={cn("font-bold text-base", isDarkMode ? "text-slate-100" : "text-slate-900")}>{task.title || task.taskUid || task.taskDesc}</p>
+                    <p className={cn("text-xs font-medium mt-0.5", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.id || task.taskId}</p>
                   </td>
                   <td className="px-6 py-5">
-                    <span className={cn("font-bold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{task.category}</span>
+                    <span className={cn("font-bold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{task.categoryName || task.category}</span>
                   </td>
                   <td className={cn("px-6 py-5 font-medium", isDarkMode ? "text-slate-300" : "text-slate-600")}>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-sm overflow-hidden">
-                        {employees?.find(e => e.name === task.assignedTo)?.avatar ? (
-                          <img src={employees.find(e => e.name === task.assignedTo).avatar} alt={task.assignedTo} className="w-full h-full object-cover" />
-                        ) : (
-                          (task.assignedTo || 'U').substring(0, 2).toUpperCase()
-                        )}
+                        {(task.assignToName || task.assignedTo || 'U').substring(0, 2).toUpperCase()}
                       </div>
-                      {task.assignedTo || 'Unassigned'}
+                      {task.assignToName || task.assignedTo || 'Unassigned'}
                     </div>
                   </td>
                   <td className="px-6 py-5">
@@ -114,13 +216,20 @@ export default function StatusChange() {
                   </td>
                   <td className="px-6 py-5 text-right">
                     <select
-                      value={task.status}
-                      onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                      value={task.statusName || task.status}
+                      onChange={(e) => handleStatusChange(task.id || task.taskId, e.target.value)}
                       className={cn("appearance-none px-4 py-2 rounded-xl text-xs font-bold tracking-wide border cursor-pointer outline-none transition-all shadow-sm focus:ring-2 focus:ring-blue-500/20", 
-                        getStatusColor(task.status)
+                        getStatusColor(task.statusName || task.status)
                       )}
                     >
-                      {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                      {apiStatuses.length > 0 
+                        ? apiStatuses.map(s => {
+                            const val = typeof s === 'string' ? s : (s.statusName || s.name || s.value);
+                            const key = typeof s === 'string' ? s : (s.statusId || s.id || s.value || val);
+                            return <option key={key} value={val}>{val}</option>;
+                          })
+                        : statuses.map(s => <option key={s} value={s}>{s}</option>)
+                      }
                     </select>
                   </td>
                 </tr>

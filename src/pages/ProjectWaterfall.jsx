@@ -4,13 +4,28 @@ import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { ArrowLeft, GitMerge, Clock, FileText } from 'lucide-react';
 import WaterfallFlow from '../components/WaterfallFlow';
+import { taskService } from '../services/taskService';
 
 export default function ProjectWaterfall() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tasks, updateTask, isDarkMode } = useStore();
-  
-  const task = tasks.find(t => t.id === id);
+  const { isDarkMode } = useStore();
+  const [task, setTask] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    taskService.getTaskById(id)
+      .then(res => {
+        const taskData = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data || res || null));
+        setTask(taskData);
+      })
+      .catch(e => console.error(e))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return <div className="text-center py-20 text-slate-500">Loading task data...</div>;
+  }
 
   if (!task) {
     return (
@@ -24,13 +39,23 @@ export default function ProjectWaterfall() {
     );
   }
 
-  const handleUpdateStage = (newStage) => {
-    updateTask(id, { stage: newStage });
+  const handleUpdateStage = async (newStage) => {
+    try {
+      await taskService.updateTask(id, { ...task, stage: newStage });
+      setTask({ ...task, stage: newStage });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleUpdateDeadline = (stage, date) => {
+  const handleUpdateDeadline = async (stage, date) => {
     const updatedDeadlines = { ...task.stageDeadlines, [stage]: date };
-    updateTask(id, { stageDeadlines: updatedDeadlines });
+    try {
+      await taskService.updateTask(id, { ...task, stageDeadlines: updatedDeadlines });
+      setTask({ ...task, stageDeadlines: updatedDeadlines });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
@@ -59,13 +84,13 @@ export default function ProjectWaterfall() {
       )}>
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
           <div>
-            <h2 className={cn("text-2xl font-bold", isDarkMode ? "text-slate-100" : "text-slate-900")}>{task.title}</h2>
+            <h2 className={cn("text-2xl font-bold", isDarkMode ? "text-slate-100" : "text-slate-900")}>{task.title || task.taskDesc}</h2>
             <div className="flex items-center gap-4 mt-2">
               <span className={cn("px-3 py-1 text-xs font-bold rounded-lg", isDarkMode ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-700")}>
-                {task.category}
+                {task.categoryName || task.category}
               </span>
               <span className={cn("px-3 py-1 text-xs font-bold rounded-lg", isDarkMode ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700")}>
-                {task.subCategory}
+                {task.subCategoryName || task.subCategory}
               </span>
             </div>
           </div>
@@ -77,7 +102,7 @@ export default function ProjectWaterfall() {
             </div>
             <div className="flex items-center gap-2">
               <FileText className={cn("w-4 h-4", isDarkMode ? "text-slate-400" : "text-slate-500")} />
-              <span className={cn("text-sm font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>Status: {task.status}</span>
+              <span className={cn("text-sm font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>Status: {task.statusName || task.status}</span>
             </div>
           </div>
         </div>

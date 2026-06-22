@@ -110,10 +110,10 @@ const INITIAL_CATEGORIES = {
 };
 
 const INITIAL_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-const INITIAL_STATUSES = ['New Task', 'Open for review', 'In Progress', 'Pending', 'On-hold', 'Completed', 'Cancelled'];
+const INITIAL_STATUSES = ['New Task', 'In Progress', 'Pending', 'On-hold', 'Completed', 'Cancelled'];
 const INITIAL_ROLES = ['Admin', 'Manager', 'Developer', 'Support', 'Sales', 'Operations'];
 const INITIAL_PLACES = ['Onsite', 'Remote'];
-export const INITIAL_DASHBOARD_METRICS = ['Open for review', 'New Task', 'In Progress', 'On-hold', 'Overdue', 'Today created', "Today's task", 'Total'];
+export const INITIAL_DASHBOARD_METRICS = ['New Task', 'In Progress', 'On-hold', 'Overdue', 'Today created', "Today's task", 'Total'];
 export const INITIAL_STAGES = ['Requirements', 'Design', 'Development', 'Testing', 'Deployment', 'Maintenance'];
 
 const INITIAL_TEAMS = [
@@ -153,6 +153,8 @@ export const useStore = create(
   discussions: INITIAL_DISCUSSIONS,
   isAuthenticated: false,
   currentUser: null,
+  userPrivileges: {},
+  setUserPrivileges: (privileges) => set({ userPrivileges: privileges }),
   login: (bioId, password) => {
     const { employees } = get();
     const user = employees.find(e => e.bioId === bioId && e.password === password);
@@ -162,7 +164,7 @@ export const useStore = create(
     }
     return false;
   },
-  logout: () => set({ isAuthenticated: false, currentUser: null }),
+  logout: () => set({ isAuthenticated: false, currentUser: null, userPrivileges: {} }),
   isDarkMode: false,
   toggleDarkMode: () => set((state) => {
     const newMode = !state.isDarkMode;
@@ -238,12 +240,12 @@ export const useStore = create(
                 user,
                 details: `Assigned to ${updatedData.assignedTo}`
               };
-            } else if (updatedData.reviewTo && updatedData.reviewTo !== t.reviewTo) {
+            } else if (updatedData.assignTo && updatedData.assignTo !== t.assignTo) {
               historyEntry = {
-                action: 'Review Requested',
+                action: 'Assigned',
                 timestamp: new Date().toISOString(),
                 user,
-                details: `Review requested from ${updatedData.reviewTo}`
+                details: `Assigned to ${updatedData.assignTo}`
               };
             } else if (updatedData.stage && updatedData.stage !== t.stage) {
               historyEntry = {

@@ -1,106 +1,267 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { ArrowLeft, Save, Briefcase, Calendar, AlignLeft, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Briefcase, Calendar, AlignLeft, Plus, Trash2, AlertCircle, Shield } from 'lucide-react';
+import { taskService } from '../services/taskService';
+import { categoryService } from '../services/categoryService';
+import { subcategoryService } from '../services/subcategoryService';
+import { enumService } from '../services/enumService';
+import { employeeService } from '../services/employeeService';
+import Swal from 'sweetalert2';
+
+// Helper to extract id/name generically
+const getItemId = (item) => {
+  if (!item) return '';
+  if (typeof item !== 'object') return item;
+  return item.employeeId || item.id || item._id || item.value || item.subcategoryId || item.subCategoryId || item.categoryId || item.taskId || item.roleId || item.priorityId || item.statusId || item.empId || JSON.stringify(item);
+};
+
+const getItemName = (item) => {
+  if (!item) return '';
+  if (typeof item !== 'object') return item;
+  return item.name || item.title || item.value || item.categoryName || item.taskDesc || item.roleName || item.priorityName || item.statusName || item.subCategoryName || item.empName || item.employeeName || 'Unknown';
+};
+
+const ensureArray = (data) => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data.items)) return data.items;
+  if (typeof data === 'object') {
+    // Fallback if data is a dictionary like {"Events": ["Sub"]}
+    return Object.keys(data).map(k => ({ id: k, name: k, value: k }));
+  }
+  return [];
+};
 
 export default function TaskForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tasks, employees, currentUser, addTask, updateTask, isDarkMode, categories, statuses, priorities } = useStore();
+  const { isDarkMode, currentUser, userPrivileges } = useStore();
   
   const isEditMode = Boolean(id);
-  const taskToEdit = isEditMode ? tasks.find(t => t.id === id) : null;
-
-  const { register, handleSubmit, watch, setValue, control, formState: { errors } } = useForm({
-    defaultValues: {
-      title: taskToEdit?.title || '',
-      category: taskToEdit?.category || '',
-      subCategory: taskToEdit?.subCategory || '',
-      assignedBy: taskToEdit?.assignedBy || currentUser?.name || '',
-      reviewTo: taskToEdit?.reviewTo || '',
-      assignedTo: taskToEdit?.assignedTo || '',
-      priority: taskToEdit?.priority || 'Medium',
-      dueDate: taskToEdit?.dueDate || '',
-      status: taskToEdit?.status || 'New Task',
-      stage: taskToEdit?.stage || 'Requirements',
-      description: taskToEdit?.description || '',
-      notes: taskToEdit?.notes || '',
-      visitorName: taskToEdit?.visitorDetails?.name || '',
-      visitorEmail: taskToEdit?.visitorDetails?.email || '',
-      visitorMobile: taskToEdit?.visitorDetails?.mobile || '',
-      visitorCompany: taskToEdit?.visitorDetails?.company || '',
-      visitorDate: taskToEdit?.visitorDetails?.date || '',
-      expectedCount: taskToEdit?.visitorDetails?.expectedCount || '',
-      extraMembers: taskToEdit?.visitorDetails?.extraMembers || [],
-      referrerType: taskToEdit?.referrerDetails?.type || 'Internal',
-      referrerName: taskToEdit?.referrerDetails?.name || '',
-      referrerDescription: taskToEdit?.referrerDetails?.description || '',
-      meetingPersonName: taskToEdit?.meetingPersonDetails?.name || '',
-      meetingPersonDescription: taskToEdit?.meetingPersonDetails?.description || ''
-    }
-  });
-
-  const selectedCategory = watch('category');
-  const selectedSubCategory = watch('subCategory');
-  const reviewToVal = watch('reviewTo');
-  const referrerTypeVal = watch('referrerType');
-
-  const { fields: extraMemberFields, append: appendExtraMember, remove: removeExtraMember } = useFieldArray({
+  const [taskToEdit, setTaskToEdit] = useState(null);
+  
+  const [categories, setCategories] = useState([]);
+  const [subCategories, setSubCategories] = useState([]);
+  const [priorities, setPriorities] = useState([]);
+  const [statuses, setStatuses] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loadingForm, setLoadingForm] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [showAddSubCategory, setShowAddSubCategory] = useState(false);
+  const [newSubCategoryName, setNewSubCategoryName] = useState('');
+  const { register, handleSubmit, watch, setValue, control, reset, formState: { errors } } = useForm();
+  
+  const { fields: extraMembers, append: appendMember, remove: removeMember } = useFieldArray({
     control,
-    name: "extraMembers"
+    name: "visitorDetails.extraMembers"
   });
 
   useEffect(() => {
-    if (!isEditMode || (isEditMode && selectedCategory !== taskToEdit?.category)) {
-      setValue('subCategory', '');
+    const loadDropdownData = async () => {
+      try {
+        const [cats, subs, pris, stats, emps] = await Promise.all([
+          categoryService.getAllCategories().catch(() => []),
+          subcategoryService.getAllSubcategories().catch(() => []),
+          enumService.getPriorityDropdown().catch(() => []),
+          enumService.getStatusDropdown().catch(() => []),
+          employeeService.getAllEmployees().catch(() => [])
+        ]);
+
+        setCategories(ensureArray(cats));
+        setSubCategories(ensureArray(subs));
+        setPriorities(ensureArray(pris));
+        setStatuses(ensureArray(stats));
+        setEmployees(ensureArray(emps));
+      } catch (error) {
+        console.error("Error loading dropdown data", error);
+      }
+    };
+    
+    loadDropdownData();
+  }, []);
+
+  useEffect(() => {
+    const loggedInUserId = currentUser?.employeeId || currentUser?.empId || currentUser?.id || '';
+    if (isEditMode) {
+      const loadTask = async () => {
+        try {
+          const res = await taskService.getTaskById(id);
+          const task = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data || res));
+          if (task) {
+            setTaskToEdit(task);
+            reset({
+              title: task.taskUid || task.title || '',
+              category: String(task.categoryId || task.category || ''),
+              subCategory: String(task.subCategoryId || task.subCategory || ''),
+              assignedBy: String(task.assignBy || task.assignedBy || loggedInUserId),
+              assignedTo: String(task.assignTo || task.assignedTo || ''),
+              priority: String(task.priority || ''),
+              dueDate: task.dueDate || '',
+              status: String(task.status || '2'),
+              description: task.taskDesc || task.description || '',
+              notes: task.notes || '',
+              referrerDetails: task.referrerDetails || {},
+              meetingPersonDetails: task.meetingPersonDetails || {},
+              visitorDetails: task.visitorDetails || { extraMembers: [] }
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching task", error);
+        }
+      };
+      loadTask();
+    } else {
+      const savedDraft = localStorage.getItem('draftTaskForm');
+      if (savedDraft) {
+        try {
+          reset(JSON.parse(savedDraft));
+        } catch(e) {
+          console.error("Failed to parse draft form", e);
+        }
+      } else {
+        reset({
+          title: '',
+          category: '',
+          subCategory: '',
+          assignedBy: String(loggedInUserId),
+          assignedTo: '',
+          priority: '',
+          dueDate: '',
+          status: '2',
+          description: '',
+          notes: '',
+          referrerDetails: {},
+          meetingPersonDetails: {},
+          visitorDetails: { extraMembers: [] }
+        });
+      }
+    }
+  }, [isEditMode, id, currentUser, reset]);
+
+  const formData = watch();
+  
+  useEffect(() => {
+    if (!isEditMode && formData && Object.keys(formData).length > 0) {
+      localStorage.setItem('draftTaskForm', JSON.stringify(formData));
+    }
+  }, [formData, isEditMode]);
+
+  const selectedCategory = watch('category');
+
+  const selectedCategoryObj = categories.find(c => String(getItemId(c)) === String(selectedCategory));
+  const categoryName = getItemName(selectedCategoryObj);
+  
+  const selectedSubCategoryObj = subCategories.find(s => String(getItemId(s)) === String(watch('subCategory')));
+  const subCategoryName = getItemName(selectedSubCategoryObj);
+
+  const isVisits = categoryName === 'Visits';
+  const isInternalOrExternal = isVisits && (subCategoryName === 'Internal' || subCategoryName === 'External');
+
+  const getAssignedByName = () => {
+    if (isEditMode && taskToEdit) {
+      const assignById = taskToEdit.assignBy || taskToEdit.assignedBy;
+      const emp = employees.find(e => String(e.employeeId || e.id) === String(assignById));
+      return emp ? (emp.employeeName || emp.name) : (taskToEdit.assignByName || taskToEdit.assignedBy || '');
+    }
+    return currentUser?.name || '';
+  };
+
+  useEffect(() => {
+    if (!isEditMode || (isEditMode && selectedCategory !== String(taskToEdit?.categoryId || taskToEdit?.category))) {
+      // Don't auto-reset subcategory initially when editing, only when category changes later
+      if (!isEditMode) setValue('subCategory', '');
     }
   }, [selectedCategory, isEditMode, setValue, taskToEdit]);
 
-  const onSubmit = (data) => {
-    const finalData = {
-      title: data.title,
-      category: data.category,
-      subCategory: data.subCategory,
-      assignedBy: data.assignedBy,
-      reviewTo: data.reviewTo,
-      assignedTo: data.assignedTo,
-      priority: data.priority,
-      dueDate: data.dueDate,
-      status: data.reviewTo && !isEditMode ? 'Open for review' : data.status,
-      stage: (data.category === 'Development' && data.subCategory === 'Software Development') ? data.stage : undefined,
-      description: data.description,
-      notes: data.notes
-    };
-
-    if (data.category === 'Visits') {
-      finalData.visitorDetails = {
-        expectedCount: data.expectedCount,
-        name: data.visitorName,
-        email: data.visitorEmail,
-        mobile: data.visitorMobile,
-        company: data.visitorCompany,
-        date: data.visitorDate,
-        extraMembers: data.extraMembers || []
-      };
-      finalData.referrerDetails = {
-        type: data.referrerType,
-        name: data.referrerName,
-        description: data.referrerDescription
-      };
-      finalData.meetingPersonDetails = {
-        name: data.meetingPersonName,
-        description: data.meetingPersonDescription
-      };
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    try {
+      await categoryService.createCategory({ categoryId: 0, categoryName: newCategoryName.trim() });
+      const cats = await categoryService.getAllCategories();
+      setCategories(ensureArray(cats));
+      setShowAddCategory(false);
+      setNewCategoryName('');
+      Swal.fire({ title: 'Success', text: 'Category added!', icon: 'success', timer: 1500, showConfirmButton: false });
+    } catch (error) {
+      console.error("Failed to add category", error);
+      Swal.fire({ title: 'Error', text: 'Failed to add category', icon: 'error' });
     }
+  };
 
-    if (isEditMode) {
-      updateTask(id, finalData);
-    } else {
-      addTask(finalData);
+  const handleAddSubCategory = async () => {
+    if (!newSubCategoryName.trim() || !selectedCategory) return;
+    try {
+      await subcategoryService.createSubcategory({ 
+        subCategoryId: 0, 
+        categoryId: parseInt(selectedCategory, 10), 
+        subCategoryName: newSubCategoryName.trim() 
+      });
+      const subs = await subcategoryService.getAllSubcategories();
+      setSubCategories(ensureArray(subs));
+      setShowAddSubCategory(false);
+      setNewSubCategoryName('');
+      Swal.fire({ title: 'Success', text: 'Sub Category added!', icon: 'success', timer: 1500, showConfirmButton: false });
+    } catch (error) {
+      console.error("Failed to add subcategory", error);
+      Swal.fire({ title: 'Error', text: 'Failed to add subcategory', icon: 'error' });
     }
-    navigate('/tasks');
+  };
+
+  const onSubmit = async (data) => {
+    setLoadingForm(true);
+    try {
+      const payload = {
+        taskId: isEditMode ? (parseInt(id, 10) || 0) : 0,
+        taskUid: data.title,
+        categoryId: parseInt(data.category, 10) || 0,
+        subCategoryId: parseInt(data.subCategory, 10) || 0,
+        assignBy: parseInt(data.assignedBy, 10) || 0, // assuming assignBy is employee ID or 0
+        assignTo: parseInt(data.assignedTo, 10) || 0,
+        priority: parseInt(data.priority, 10) || 0,
+        dueDate: data.dueDate,
+        status: parseInt(data.status, 10) || 0,
+        taskDesc: data.description || data.title,
+        notes: data.notes || ""
+      };
+
+      if (isInternalOrExternal) {
+        payload.referrerDetails = {
+          type: subCategoryName,
+          name: data.referrerDetails?.name,
+          description: data.referrerDetails?.description || ""
+        };
+        payload.meetingPersonDetails = {
+          name: data.meetingPersonDetails?.name,
+          description: data.meetingPersonDetails?.description || ""
+        };
+        payload.visitorDetails = {
+          expectedCount: data.visitorDetails?.expectedCount,
+          date: data.visitorDetails?.date,
+          name: data.visitorDetails?.name,
+          email: data.visitorDetails?.email,
+          mobile: data.visitorDetails?.mobile,
+          company: data.visitorDetails?.company,
+          extraMembers: data.visitorDetails?.extraMembers || []
+        };
+      }
+
+      if (isEditMode) {
+        await taskService.updateTask(id, payload);
+      } else {
+        await taskService.createTask(payload);
+        localStorage.removeItem('draftTaskForm');
+      }
+      navigate('/tasks');
+    } catch (error) {
+      console.error("Failed to save task", error);
+    } finally {
+      setLoadingForm(false);
+    }
   };
 
   const inputClasses = cn(
@@ -124,6 +285,53 @@ export default function TaskForm() {
     </div>
   );
 
+  const taskPermissions = userPrivileges['task list'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const canAccess = isAdmin || (isEditMode ? taskPermissions.canUpdate === 1 : taskPermissions.canCreate === 1);
+
+  // 30-minute edit window check for non-admins (when task data is loaded in edit mode)
+  const isEditWindowExpired = (() => {
+    if (!isEditMode || isAdmin || !taskToEdit) return false;
+    const createdAt = taskToEdit.createdTime || taskToEdit.createdAt || taskToEdit.CreatedTime;
+    if (!createdAt) return false;
+    const minutesSince = (Date.now() - new Date(createdAt).getTime()) / 60000;
+    return minutesSince > 30;
+  })();
+
+  if (!canAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] animate-[fadeIn_0.5s_ease-out]">
+        <div className="p-4 rounded-full bg-rose-500/10 text-rose-500 mb-4 animate-[pulse_2s_infinite]">
+          <Shield className="w-12 h-12" />
+        </div>
+        <h2 className={cn("text-2xl font-bold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Access Denied</h2>
+        <p className={cn("text-sm font-medium mt-2 max-w-sm", isDarkMode ? "text-slate-400" : "text-slate-500")}>
+          You do not have the required permissions to access this page. Please contact your system administrator.
+        </p>
+        <Link to="/tasks" className="mt-6 px-6 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow">
+          Back to Task List
+        </Link>
+      </div>
+    );
+  }
+
+  if (isEditWindowExpired) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] animate-[fadeIn_0.5s_ease-out]">
+        <div className="p-4 rounded-full bg-amber-500/10 text-amber-500 mb-4">
+          <AlertCircle className="w-12 h-12" />
+        </div>
+        <h2 className={cn("text-2xl font-bold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Edit Window Expired</h2>
+        <p className={cn("text-sm font-medium mt-2 max-w-sm", isDarkMode ? "text-slate-400" : "text-slate-500")}>
+          Tasks can only be edited within <span className="font-bold text-amber-500">30 minutes</span> of creation. This task is no longer editable. Please contact an Admin if changes are required.
+        </p>
+        <Link to="/tasks" className="mt-6 px-6 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow">
+          Back to Task List
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-8 animate-[fadeIn_0.5s_ease-out]">
       <div className="flex items-center gap-4">
@@ -146,253 +354,234 @@ export default function TaskForm() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
-              <label className={labelClasses}>Task Title <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Task Title / UID <span className="text-rose-500">*</span></label>
               <input 
                 {...register('title', { required: 'Task title is required' })} 
-                className={cn(inputClasses, errors.title && "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20")} 
-                placeholder="Enter a descriptive task title" 
+                className={cn(inputClasses, errors.title && "border-rose-500")} 
+                placeholder="Enter a descriptive task title or UID" 
               />
               {errors.title && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.title.message}</p>}
             </div>
 
             <div>
-              <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
+              <div className="flex items-center justify-between mb-2">
+                <label className={cn("block text-sm font-bold tracking-wide", isDarkMode ? "text-slate-300" : "text-slate-700")}>Category <span className="text-rose-500">*</span></label>
+                <button type="button" onClick={() => setShowAddCategory(true)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 p-1 bg-blue-50 dark:bg-slate-800 rounded-lg">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
               <select 
                 {...register('category', { required: 'Category is required' })} 
                 className={cn(inputClasses, "appearance-none cursor-pointer", errors.category && "border-rose-500")}
               >
                 <option value="">Select Category</option>
-                {Object.keys(categories).map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                {categories.map(cat => (
+                  <option key={getItemId(cat)} value={getItemId(cat)}>{getItemName(cat)}</option>
                 ))}
               </select>
               {errors.category && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.category.message}</p>}
             </div>
 
             <div>
-              <label className={labelClasses}>Sub Category <span className="text-rose-500">*</span></label>
+              <div className="flex items-center justify-between mb-2">
+                <label className={cn("block text-sm font-bold tracking-wide", isDarkMode ? "text-slate-300" : "text-slate-700")}>Sub Category <span className="text-rose-500">*</span></label>
+                <button type="button" disabled={!selectedCategory} onClick={() => setShowAddSubCategory(true)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 p-1 bg-blue-50 dark:bg-slate-800 rounded-lg disabled:opacity-50">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
               <select 
                 {...register('subCategory', { required: 'Sub Category is required' })} 
                 className={cn(inputClasses, "appearance-none cursor-pointer", errors.subCategory && "border-rose-500")}
                 disabled={!selectedCategory}
               >
                 <option value="">Select Sub Category</option>
-                {selectedCategory && categories[selectedCategory] && categories[selectedCategory].map(sub => (
-                  <option key={sub} value={sub}>{sub}</option>
+                {selectedCategory && subCategories
+                  .filter(sub => {
+                    const subCatIdStr = String(sub.categoryId || sub.category_id || sub.category?.id || sub.category?._id || sub.category || '');
+                    return subCatIdStr === String(selectedCategory);
+                  })
+                  .map(sub => (
+                    <option key={getItemId(sub)} value={getItemId(sub)}>{getItemName(sub)}</option>
                 ))}
               </select>
               {errors.subCategory && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.subCategory.message}</p>}
             </div>
 
             <div>
-              <label className={labelClasses}>Assigned By <span className="text-rose-500">*</span></label>
-              <input 
-                {...register('assignedBy', { required: 'Assigned By is required' })} 
-                readOnly
-                className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-not-allowed")} 
-              />
+              <label className={labelClasses}>Created By <span className="text-rose-500">*</span></label>
+              <select 
+                {...register('assignedBy', { required: 'Created By is required' })} 
+                className={cn(inputClasses, "appearance-none cursor-pointer", errors.assignedBy && "border-rose-500")}
+              >
+                <option value="">Select Creator</option>
+                {employees.map(emp => (
+                  <option key={getItemId(emp)} value={getItemId(emp)}>{getItemName(emp)}</option>
+                ))}
+              </select>
+              {errors.assignedBy && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.assignedBy.message}</p>}
             </div>
 
             <div>
-              <label className={labelClasses}>Review To</label>
+              <label className={labelClasses}>Assigned To (Optional)</label>
               <select 
-                {...register('reviewTo')} 
+                {...register('assignedTo')} 
                 className={cn(inputClasses, "appearance-none cursor-pointer")}
               >
-                <option value="">Select Reviewer (Optional)</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.name}>{emp.name}</option>
-                ))}
+                <option value="">Select Assignee</option>
+                {employees.map(emp => {
+                  const empId = String(getItemId(emp));
+                  const loggedInId = String(currentUser?.employeeId || currentUser?.empId || currentUser?.id || '');
+                  const isSelf = empId === loggedInId;
+                  return (
+                    <option key={empId} value={empId}>
+                      {getItemName(emp)} {isSelf ? '(Self)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
-
 
           </div>
         </div>
 
-        {selectedCategory === 'Visits' && (
+        {isInternalOrExternal && (
           <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
+            <SectionHeader icon={Briefcase} title="Reference & Meeting Details" subtitle="Who referred them, and who are they meeting?" />
             
-            {/* 1. Reference & Meeting Details */}
-            <div>
-              <SectionHeader icon={AlignLeft} title="Reference & Meeting Details" subtitle="Who referred them, and who are they meeting?" />
-              
-              <div className="flex flex-col lg:flex-row gap-8">
-                {/* Left Side: Referrer */}
-                <div className="flex-1 space-y-6">
-                  <h3 className={cn("text-lg font-bold tracking-tight border-b pb-2", isDarkMode ? "text-slate-200 border-slate-700" : "text-slate-800 border-slate-200")}>Referrer Details</h3>
-                  <div>
-                    <label className={labelClasses}>Internal or External?</label>
-                    <select {...register('referrerType')} className={cn(inputClasses, "appearance-none cursor-pointer w-full")}>
-                      <option value="Internal">Internal Employee</option>
-                      <option value="External">External Person</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className={labelClasses}>Referrer Name <span className="text-rose-500">*</span></label>
-                    {referrerTypeVal === 'Internal' ? (
-                      <select 
-                        {...register('referrerName', { required: 'Name is required' })} 
-                        className={cn(inputClasses, "appearance-none cursor-pointer", errors.referrerName && "border-rose-500")}
-                        onChange={(e) => {
-                          const emp = employees.find(emp => emp.name === e.target.value);
-                          if (emp) {
-                             setValue('referrerDescription', `Role: ${emp.role}\nBio ID: ${emp.bioId}\nEmail: ${emp.email}\nMobile: ${emp.mobile}`);
-                          }
-                        }}
-                      >
-                        <option value="">Select Employee...</option>
-                        {employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
-                      </select>
-                    ) : (
-                      <input {...register('referrerName', { required: 'Name is required' })} className={cn(inputClasses, errors.referrerName && "border-rose-500")} placeholder="Enter Name" />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className={labelClasses}>Description</label>
-                    <textarea 
-                      {...register('referrerDescription')} 
-                      rows="4"
-                      className={cn(inputClasses, "resize-y")} 
-                      placeholder="Enter role, company, email, mobile, or other details..." 
-                    />
-                  </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              {/* Referrer Details */}
+              <div className="space-y-6">
+                <h3 className={cn("text-lg font-bold border-b pb-3", isDarkMode ? "border-slate-700 text-slate-200" : "border-slate-200 text-slate-800")}>Referrer Details</h3>
+                
+                <div>
+                  <label className={labelClasses}>Internal or External?</label>
+                  <input 
+                    type="text" 
+                    value={subCategoryName === 'Internal' ? 'Internal Employee' : 'External'} 
+                    readOnly 
+                    className={cn(inputClasses, "bg-slate-100/50 dark:bg-slate-900/30 cursor-not-allowed opacity-80")} 
+                  />
+                  <input type="hidden" {...register('referrerDetails.type')} value={subCategoryName} />
                 </div>
 
-                {/* Vertical Divider */}
-                <div className={cn("hidden lg:block w-px rounded-full", isDarkMode ? "bg-slate-700/50" : "bg-slate-200")}></div>
-                {/* Horizontal Divider for mobile */}
-                <div className={cn("block lg:hidden h-px w-full rounded-full my-4", isDarkMode ? "bg-slate-700/50" : "bg-slate-200")}></div>
-
-                {/* Right Side: Meeting Person */}
-                <div className="flex-1 space-y-6">
-                  <h3 className={cn("text-lg font-bold tracking-tight border-b pb-2", isDarkMode ? "text-slate-200 border-slate-700" : "text-slate-800 border-slate-200")}>Referred To (Meeting Person)</h3>
-                  
-                  <div>
-                    <label className={labelClasses}>Meeting With <span className="text-rose-500">*</span></label>
-                    <select 
-                      {...register('meetingPersonName', { required: 'Meeting person is required' })} 
-                      className={cn(inputClasses, "appearance-none cursor-pointer", errors.meetingPersonName && "border-rose-500")}
-                      onChange={(e) => {
-                        const emp = employees.find(emp => emp.name === e.target.value);
-                        if (emp) {
-                           setValue('meetingPersonDescription', `Role: ${emp.role}\nBio ID: ${emp.bioId}\nEmail: ${emp.email}\nMobile: ${emp.mobile}`);
-                        }
-                      }}
-                    >
+                <div>
+                  <label className={labelClasses}>Referrer Name <span className="text-rose-500">*</span></label>
+                  {subCategoryName === 'Internal' ? (
+                    <select {...register('referrerDetails.name', { required: isInternalOrExternal })} className={cn(inputClasses, "appearance-none cursor-pointer", errors.referrerDetails?.name && "border-rose-500")}>
                       <option value="">Select Employee...</option>
-                      {employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
+                      {employees.map(emp => (
+                        <option key={getItemId(emp)} value={getItemName(emp)}>{getItemName(emp)}</option>
+                      ))}
                     </select>
-                  </div>
+                  ) : (
+                    <input {...register('referrerDetails.name', { required: isInternalOrExternal })} className={cn(inputClasses, errors.referrerDetails?.name && "border-rose-500")} placeholder="Referrer Name" />
+                  )}
+                </div>
 
-                  <div>
-                    <label className={labelClasses}>Description</label>
-                    <textarea 
-                      {...register('meetingPersonDescription')} 
-                      rows="4"
-                      className={cn(inputClasses, "resize-y")} 
-                      placeholder="Enter role, bio ID, email, mobile, or other details..." 
-                    />
-                  </div>
+                <div>
+                  <label className={labelClasses}>Description (Mobile, Email, Bio ID, Role, etc.)</label>
+                  <textarea 
+                    {...register('referrerDetails.description')} 
+                    rows={4} 
+                    className={cn(inputClasses, "resize-y min-h-[100px] py-3")} 
+                    placeholder="Enter referrer details like Mobile, Email, Bio ID, Role, etc."
+                  />
+                </div>
+              </div>
+
+              {/* Referred To (Meeting Person) */}
+              <div className="space-y-6">
+                <h3 className={cn("text-lg font-bold border-b pb-3", isDarkMode ? "border-slate-700 text-slate-200" : "border-slate-200 text-slate-800")}>Referred To (Meeting Person)</h3>
+                
+                <div>
+                  <label className={labelClasses}>Meeting With <span className="text-rose-500">*</span></label>
+                  <select {...register('meetingPersonDetails.name', { required: isInternalOrExternal })} className={cn(inputClasses, "appearance-none cursor-pointer", errors.meetingPersonDetails?.name && "border-rose-500")}>
+                    <option value="">Select Employee...</option>
+                    {employees.map(emp => (
+                      <option key={getItemId(emp)} value={getItemName(emp)}>{getItemName(emp)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClasses}>Description (Mobile, Email, Bio ID, Role, etc.)</label>
+                  <textarea 
+                    {...register('meetingPersonDetails.description')} 
+                    rows={4} 
+                    className={cn(inputClasses, "resize-y min-h-[100px] py-3")} 
+                    placeholder="Enter meeting person details like Mobile, Email, Bio ID, Role, etc."
+                  />
                 </div>
               </div>
             </div>
 
-            {/* 2. Visitor Details */}
-            <div className="mt-8 border-t border-slate-200 dark:border-slate-700/50 pt-8">
-              <SectionHeader icon={Briefcase} title="Visitor Details" subtitle="Information about the visitor." />
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+            {/* Visitor Details */}
+            <div className="mt-12 pt-8 border-t dark:border-slate-700/50">
+              <div className="flex items-center gap-4 mb-6">
+                <div className={cn("p-3 rounded-2xl", isDarkMode ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600")}>
+                  <Briefcase className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className={cn("text-lg font-bold", isDarkMode ? "text-slate-200" : "text-slate-800")}>Visitor Details</h3>
+                  <p className={cn("text-xs font-medium mt-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>Information about the visitor.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className={labelClasses}>Expected Persons Count</label>
-                  <input type="number" min="1" {...register('expectedCount')} className={cn(inputClasses)} placeholder="e.g. 5" />
+                  <input type="number" {...register('visitorDetails.expectedCount')} className={inputClasses} placeholder="e.g. 5" />
                 </div>
                 <div>
                   <label className={labelClasses}>Visitor Name</label>
-                  <input {...register('visitorName')} className={cn(inputClasses)} placeholder="Name (Optional if unknown)" />
+                  <input {...register('visitorDetails.name')} className={inputClasses} placeholder="Name (Optional if unknown)" />
                 </div>
                 <div>
                   <label className={labelClasses}>Visitor Email</label>
-                  <input type="email" {...register('visitorEmail')} className={cn(inputClasses)} placeholder="Email (Optional)" />
+                  <input type="email" {...register('visitorDetails.email')} className={inputClasses} placeholder="Email (Optional)" />
                 </div>
                 <div>
                   <label className={labelClasses}>Visitor Mobile</label>
-                  <input {...register('visitorMobile')} className={cn(inputClasses)} placeholder="Mobile (Optional)" />
+                  <input {...register('visitorDetails.mobile')} className={inputClasses} placeholder="Mobile (Optional)" />
                 </div>
                 <div>
                   <label className={labelClasses}>Visitor Company</label>
-                  <input {...register('visitorCompany')} className={cn(inputClasses)} placeholder="Company (Optional)" />
+                  <input {...register('visitorDetails.company')} className={inputClasses} placeholder="Company (Optional)" />
                 </div>
                 <div>
                   <label className={labelClasses}>Visit Date <span className="text-rose-500">*</span></label>
-                  <input type="date" {...register('visitorDate', { required: 'Visit date is required' })} className={cn(inputClasses, "cursor-pointer", errors.visitorDate && "border-rose-500")} />
+                  <input type="date" {...register('visitorDetails.date', { required: isInternalOrExternal })} className={cn(inputClasses, errors.visitorDetails?.date && "border-rose-500")} />
                 </div>
               </div>
-            </div>
 
-            {/* 3. Extra Members */}
-            <div className="mt-8 border-t border-slate-200 dark:border-slate-700/50 pt-8">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className={cn("text-lg font-bold tracking-tight", isDarkMode ? "text-slate-200" : "text-slate-800")}>Extra Members</h3>
-                <button
-                  type="button"
-                  onClick={() => appendExtraMember({ name: '', email: '', mobile: '', company: '', role: '' })}
-                  className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-500/20 dark:hover:bg-blue-500/30 dark:text-blue-400 rounded-lg font-bold text-sm transition-colors flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Add Member
-                </button>
-              </div>
-              <div className="space-y-4">
-                {extraMemberFields.map((field, index) => (
-                  <div key={field.id} className="flex gap-4 items-start flex-wrap">
-                    <div className="flex-1 min-w-[150px]">
-                      <input 
-                        {...register(`extraMembers.${index}.name`, { required: 'Name is required' })} 
-                        placeholder="Member Name"
-                        className={cn(inputClasses, errors?.extraMembers?.[index]?.name && "border-rose-500")} 
-                      />
-                    </div>
-                    <div className="flex-1 min-w-[150px]">
-                      <input 
-                        type="email"
-                        {...register(`extraMembers.${index}.email`, { required: 'Email is required' })} 
-                        placeholder="Member Email"
-                        className={cn(inputClasses, errors?.extraMembers?.[index]?.email && "border-rose-500")} 
-                      />
-                    </div>
-                    <div className="flex-1 min-w-[150px]">
-                      <input 
-                        {...register(`extraMembers.${index}.mobile`, { required: 'Mobile is required' })} 
-                        placeholder="Member Mobile"
-                        className={cn(inputClasses, errors?.extraMembers?.[index]?.mobile && "border-rose-500")} 
-                      />
-                    </div>
-                    <div className="flex-1 min-w-[150px]">
-                      <input 
-                        {...register(`extraMembers.${index}.company`, { required: 'Company is required' })} 
-                        placeholder="Company Name"
-                        className={cn(inputClasses, errors?.extraMembers?.[index]?.company && "border-rose-500")} 
-                      />
-                    </div>
-                    <div className="flex-1 min-w-[150px]">
-                      <input 
-                        {...register(`extraMembers.${index}.role`, { required: 'Role is required' })} 
-                        placeholder="Role"
-                        className={cn(inputClasses, errors?.extraMembers?.[index]?.role && "border-rose-500")} 
-                      />
-                    </div>
-                    <button 
-                      type="button" 
-                      onClick={() => removeExtraMember(index)}
-                      className="p-3 mt-0.5 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors shrink-0"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+              {/* Extra Members Array */}
+              <div className="mt-8 pt-8 border-t dark:border-slate-700/50">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className={cn("text-lg font-bold", isDarkMode ? "text-slate-200" : "text-slate-800")}>Extra Members</h3>
+                  <button type="button" onClick={() => appendMember({ name: '', role: '', company: '', email: '', mobile: '' })} className="px-4 py-2 bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 font-bold text-sm rounded-xl hover:bg-blue-200 dark:hover:bg-blue-500/30 transition flex items-center gap-2">
+                    <Plus className="w-4 h-4" /> Add Member
+                  </button>
+                </div>
+                
+                {extraMembers.length === 0 ? (
+                  <p className="text-center text-sm font-medium text-slate-400 italic py-4">No extra members added.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {extraMembers.map((member, index) => (
+                      <div key={member.id} className={cn("p-4 rounded-2xl border flex flex-col md:flex-row gap-4 items-start", isDarkMode ? "bg-slate-800/80 border-slate-700" : "bg-slate-50 border-slate-200")}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 flex-1 w-full">
+                          <input {...register(`visitorDetails.extraMembers.${index}.name`)} placeholder="Name" className={inputClasses} />
+                          <input {...register(`visitorDetails.extraMembers.${index}.role`)} placeholder="Role" className={inputClasses} />
+                          <input {...register(`visitorDetails.extraMembers.${index}.company`)} placeholder="Company" className={inputClasses} />
+                          <input {...register(`visitorDetails.extraMembers.${index}.email`)} placeholder="Email" className={inputClasses} />
+                          <input {...register(`visitorDetails.extraMembers.${index}.mobile`)} placeholder="Mobile" className={inputClasses} />
+                        </div>
+                        <button type="button" onClick={() => removeMember(index)} className="p-3.5 rounded-xl bg-rose-100 text-rose-600 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:hover:bg-rose-500/30 transition self-end md:self-auto shrink-0">
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-                {extraMemberFields.length === 0 && (
-                  <p className={cn("text-sm font-medium italic text-center py-4", isDarkMode ? "text-slate-500" : "text-slate-400")}>No extra members added.</p>
                 )}
               </div>
             </div>
@@ -407,7 +596,8 @@ export default function TaskForm() {
             <div>
               <label className={labelClasses}>Priority</label>
               <select {...register('priority')} className={cn(inputClasses, "appearance-none cursor-pointer")}>
-                {priorities.map(p => <option key={p} value={p}>{p}</option>)}
+                <option value="">Select Priority</option>
+                {priorities.map(p => <option key={getItemId(p)} value={getItemId(p)}>{getItemName(p)}</option>)}
               </select>
             </div>
 
@@ -415,28 +605,47 @@ export default function TaskForm() {
               <label className={labelClasses}>Due Date <span className="text-rose-500">*</span></label>
               <input 
                 type="date"
-                {...register('dueDate', { required: 'Due Date is mandatory' })} 
+                {...register('dueDate', { 
+                  required: 'Due Date is mandatory',
+                  onChange: (e) => {
+                    if (!e.target.value) return;
+                    const selected = new Date(e.target.value);
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    if (selected < today) {
+                      Swal.fire({
+                        title: 'Are you sure?',
+                        text: "You have selected a past date. Do you want to proceed?",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Yes, proceed!'
+                      }).then((result) => {
+                        if (!result.isConfirmed) {
+                          setValue('dueDate', '', { shouldValidate: true });
+                        }
+                      });
+                    }
+                  }
+                })} 
                 className={cn(inputClasses, "cursor-pointer", errors.dueDate && "border-rose-500")} 
               />
               {errors.dueDate && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.dueDate.message}</p>}
             </div>
 
             <div>
-              <label className={labelClasses}>Status <span className="text-rose-500">*</span></label>
-              <select 
-                {...register('status', { required: 'Status is mandatory' })} 
-                className={cn(inputClasses, "appearance-none cursor-pointer", errors.status && "border-rose-500", !isEditMode && "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-not-allowed")}
-              >
-                {isEditMode ? (
-                  statuses.map(s => <option key={s} value={s}>{s}</option>)
-                ) : (
-                  <>
-                    <option value="Open">Open (Default)</option>
-                    <option value="Open for review">Open for review</option>
-                  </>
-                )}
-              </select>
-              {errors.status && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.status.message}</p>}
+              <label className={labelClasses}>Status</label>
+              <input
+                type="text"
+                value={isEditMode && taskToEdit ? (taskToEdit.statusName || taskToEdit.status || 'New Task') : 'New Task'}
+                readOnly
+                className={cn(inputClasses, "bg-slate-100/50 dark:bg-slate-900/30 cursor-not-allowed opacity-80")}
+              />
+              <input
+                type="hidden"
+                {...register('status')}
+              />
             </div>
           </div>
         </div>
@@ -447,7 +656,7 @@ export default function TaskForm() {
           
           <div className="space-y-8">
             <div>
-              <label className={labelClasses}>Description</label>
+              <label className={labelClasses}>Task Description</label>
               <textarea 
                 {...register('description')} 
                 rows="4" 
@@ -474,7 +683,10 @@ export default function TaskForm() {
         )}>
           <button 
             type="button" 
-            onClick={() => navigate('/tasks')}
+            onClick={() => {
+              if (!isEditMode) localStorage.removeItem('draftTaskForm');
+              navigate('/tasks');
+            }}
             className={cn("px-8 py-3.5 rounded-xl font-bold transition-all duration-300 border",
               isDarkMode ? "bg-slate-800/50 border-slate-700 hover:bg-slate-700 text-slate-300" : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700 shadow-sm"
             )}
@@ -483,13 +695,55 @@ export default function TaskForm() {
           </button>
           <button 
             type="submit" 
-            className="flex items-center gap-2 px-10 py-3.5 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white transition-all duration-300 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:-translate-y-0.5"
+            disabled={loadingForm}
+            className="flex items-center gap-2 px-10 py-3.5 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white transition-all duration-300 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:-translate-y-0.5 disabled:opacity-50"
           >
-            <Save className="w-5 h-5" /> {isEditMode ? 'Save Changes' : 'Create Task'}
+            <Save className="w-5 h-5" /> {loadingForm ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Create Task')}
           </button>
         </div>
         
       </form>
+
+      {/* Modals for Quick Add */}
+      {showAddCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={cn("p-6 rounded-2xl w-full max-w-sm shadow-xl", isDarkMode ? "bg-slate-800" : "bg-white")}>
+            <h3 className={cn("text-lg font-bold mb-4", isDarkMode ? "text-white" : "text-slate-900")}>Add New Category</h3>
+            <input 
+              type="text" 
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Category Name"
+              className={cn(inputClasses, "mb-6")}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }} className={cn("px-4 py-2 font-bold rounded-lg transition-colors", isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-100")}>Cancel</button>
+              <button type="button" onClick={handleAddCategory} className="px-4 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddSubCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={cn("p-6 rounded-2xl w-full max-w-sm shadow-xl", isDarkMode ? "bg-slate-800" : "bg-white")}>
+            <h3 className={cn("text-lg font-bold mb-4", isDarkMode ? "text-white" : "text-slate-900")}>Add New Sub Category</h3>
+            <input 
+              type="text" 
+              value={newSubCategoryName}
+              onChange={(e) => setNewSubCategoryName(e.target.value)}
+              placeholder="Sub Category Name"
+              className={cn(inputClasses, "mb-6")}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => { setShowAddSubCategory(false); setNewSubCategoryName(''); }} className={cn("px-4 py-2 font-bold rounded-lg transition-colors", isDarkMode ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-100")}>Cancel</button>
+              <button type="button" onClick={handleAddSubCategory} className="px-4 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">Add</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

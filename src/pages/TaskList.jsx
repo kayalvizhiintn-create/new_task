@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { cn } from '../utils/cn';
-import { Search, Filter, Download, Plus, Edit, Eye, Trash2, ArrowLeft, GitMerge, Layers, Users } from 'lucide-react';
+import { Search, Filter, Download, Plus, Edit, Eye, Trash2, ArrowLeft, GitMerge, Layers, Users, Shield } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import ProjectFlow from '../components/ProjectFlow';
+import { taskService } from '../services/taskService';
+import { categoryService } from '../services/categoryService';
+import { subcategoryService } from '../services/subcategoryService';
 
 const getStatusColor = (status, isDarkMode) => {
   switch(status) {
@@ -26,8 +29,18 @@ const StatusBadge = ({ status, isDarkMode }) => (
 );
 
 export default function TaskList() {
-  const { tasks, employees, isDarkMode, deleteTask, categories, statuses } = useStore();
+  const { employees, isDarkMode, categories, statuses, userPrivileges, currentUser } = useStore();
   const navigate = useNavigate();
+  const [tasks, setTasks] = useState([]);
+
+  const taskPermissions = userPrivileges['task list'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const canCreateTask = isAdmin || taskPermissions.canCreate === 1;
+  const canUpdateTask = isAdmin || taskPermissions.canUpdate === 1;
+  const canDeleteTask = isAdmin || taskPermissions.canDelete === 1;
+  const [apiCategories, setApiCategories] = useState([]);
+  const [apiSubCategories, setApiSubCategories] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -38,14 +51,43 @@ export default function TaskList() {
   const [flowTask, setFlowTask] = useState(null);
   const itemsPerPage = 10;
 
+  const loadTasks = async () => {
+    setLoadingTasks(true);
+    try {
+      const [res, cats, subs] = await Promise.all([
+        taskService.getAllTasks().catch(() => []),
+        categoryService.getAllCategories().catch(() => []),
+        subcategoryService.getAllSubcategories().catch(() => [])
+      ]);
+      let fetchedTasks = Array.isArray(res) ? res : (res?.data || []);
+      fetchedTasks.sort((a, b) => (b.taskId || b.id || 0) - (a.taskId || a.id || 0));
+      setTasks(fetchedTasks);
+      setApiCategories(Array.isArray(cats) ? cats : (cats?.data || cats?.items || []));
+      setApiSubCategories(Array.isArray(subs) ? subs : (subs?.data || subs?.items || []));
+    } catch (error) {
+      console.error("Error fetching tasks", error);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  const getCategoryName = (idOrName) => {
+    if (!idOrName && idOrName !== 0) return 'No Category';
+    const cat = apiCategories.find(c => String(c.categoryId || c.id || c._id) === String(idOrName));
+    return cat ? (cat.categoryName || cat.name) : idOrName;
+  };
+
+  const getSubCategoryName = (idOrName) => {
+    if (!idOrName && idOrName !== 0) return '';
+    const sub = apiSubCategories.find(s => String(s.subCategoryId || s.id || s._id) === String(idOrName));
+    return sub ? (sub.subCategoryName || sub.name) : idOrName;
+  };
+
   React.useEffect(() => {
+    loadTasks();
     const statusParam = searchParams.get('status');
     if (statusParam) {
-      if (statuses.includes(statusParam)) {
-        setStatusFilter(statusParam);
-      } else if (statusParam === 'All') {
-        setStatusFilter('All');
-      }
+      setStatusFilter(statusParam); // Allow any status passed via URL parameter
     }
     
     const categoryParam = searchParams.get('category');
@@ -59,10 +101,44 @@ export default function TaskList() {
   }, [searchParams]);
 
   const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          task.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || task.status === statusFilter;
-    const matchesCategory = categoryFilter === 'All' || task.category === categoryFilter;
+    const taskTitle = task.title || task.taskDesc || '';
+    const taskIdStr = String(task.id || task.taskId || '');
+    
+    const matchesSearch = taskTitle.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          taskIdStr.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const getStatusName = (t) => t.statusName || t.status || 'New Task';
+    
+    const matchesStatusFn = (t, target) => {
+      if (target === 'All') return true;
+      const trg = target.toLowerCase().trim();
+
+      const todayLocal = new Date();
+      const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+
+      if (trg === 'today created') {
+        const createdDate = t.createdTime || t.createdAt || t.createdDate || t.dateCreated || t.CreatedTime;
+        return createdDate && createdDate.toString().startsWith(today);
+      }
+      if (trg === "today's task") {
+        return t.dueDate && t.dueDate.startsWith(today);
+      }
+
+      const s = getStatusName(t).toLowerCase().trim();
+      if (trg.includes('progress')) return s.includes('progress') || s.includes('going');
+      if (trg.includes('hold')) return s.includes('hold') || s.includes('pause') || s.includes('pending');
+      if (trg.includes('complete')) return s.includes('complete') || s.includes('done') || s.includes('close');
+      if (trg.includes('cancel')) return s.includes('cancel') || s.includes('reject');
+      if (trg.includes('new')) return s === 'new task' || s === 'new' || s === 'newtask' || s === 'open' || s.includes('assigned');
+      return s === trg;
+    };
+
+    const matchesStatus = matchesStatusFn(task, statusFilter);
+    
+    const taskCatName = (task.categoryName || getCategoryName(task.category || task.categoryId) || '').toLowerCase().trim();
+    const targetCatName = (categoryFilter || '').toLowerCase().trim();
+    const matchesCategory = categoryFilter === 'All' || taskCatName === targetCatName;
+    
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
@@ -74,15 +150,15 @@ export default function TaskList() {
     const csvContent = [
       headers.join(','),
       ...filteredTasks.map(t => [
-        t.id, 
-        `"${t.title}"`, 
-        t.category, 
-        t.subCategory, 
-        `"${t.assignedTo}"`, 
-        t.priority, 
+        t.id || t.taskId, 
+        `"${t.title || t.taskUid || ''}"`, 
+        `"${t.categoryName || getCategoryName(t.category || t.categoryId)}"`, 
+        `"${t.subCategoryName || getSubCategoryName(t.subCategory || t.subCategoryId)}"`, 
+        `"${t.assignToName || t.assignedTo || 'Unassigned'}"`, 
+        t.priorityName || t.priority, 
         t.dueDate, 
-        t.status, 
-        new Date(t.createdAt).toLocaleDateString()
+        t.statusName || t.status, 
+        new Date(t.createdAt || Date.now()).toLocaleDateString()
       ].join(','))
     ].join('\n');
 
@@ -106,7 +182,33 @@ export default function TaskList() {
     }
   };
 
+  // Returns true if the task can still be edited (within 30 min for non-admin)
+  const canEditTask = (task) => {
+    if (isAdmin) return true;
+    const createdAt = task.createdTime || task.createdAt || task.CreatedTime || task.dateCreated;
+    if (!createdAt) return true; // If no creation time, allow
+    const minutesSince = (Date.now() - new Date(createdAt).getTime()) / 60000;
+    return minutesSince <= 30;
+  };
 
+  const canView = isAdmin || taskPermissions.canView === 1;
+
+  if (!canView) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] animate-[fadeIn_0.5s_ease-out]">
+        <div className="p-4 rounded-full bg-rose-500/10 text-rose-500 mb-4 animate-[pulse_2s_infinite]">
+          <Shield className="w-12 h-12" />
+        </div>
+        <h2 className={cn("text-2xl font-bold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Access Denied</h2>
+        <p className={cn("text-sm font-medium mt-2 max-w-sm", isDarkMode ? "text-slate-400" : "text-slate-500")}>
+          You do not have the required permissions to view the Task List. Please contact your system administrator.
+        </p>
+        <Link to="/dashboard" className="mt-6 px-6 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow">
+          Back to Dashboard
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
@@ -135,12 +237,14 @@ export default function TaskList() {
           >
             <Download className="w-4 h-4" /> Export CSV
           </button>
-          <Link 
-            to="/tasks/new"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5"
-          >
-            <Plus className="w-5 h-5" /> Create Task
-          </Link>
+          {canCreateTask && (
+            <Link 
+              to="/tasks/new"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+            >
+              <Plus className="w-5 h-5" /> Create Task
+            </Link>
+          )}
         </div>
       </div>
 
@@ -187,6 +291,8 @@ export default function TaskList() {
             >
               <option value="All">All Statuses</option>
               {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="Today created">Today Created</option>
+              <option value="Today's task">Today's Task</option>
             </select>
           </div>
         </div>
@@ -211,51 +317,62 @@ export default function TaskList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-              {paginatedTasks.length > 0 ? paginatedTasks.map((task, idx) => (
+              {loadingTasks ? (
+                <tr><td colSpan="8" className="p-8 text-center">Loading tasks from database...</td></tr>
+              ) : paginatedTasks.length > 0 ? paginatedTasks.map((task, idx) => {
+                const displayId = task.id || task.taskId || idx;
+                const displayTitle = task.title || task.taskUid || task.taskDesc || 'No Title';
+                const displayCategory = task.categoryName || getCategoryName(task.category || task.categoryId);
+                const displaySubCategory = task.subCategoryName || getSubCategoryName(task.subCategory || task.subCategoryId);
+                const displayAssignee = task.assignToName || task.assignedTo || 'Unassigned';
+                const displayPriority = task.priorityName || task.priority || 'Medium';
+                const displayStatus = task.statusName || task.status || 'New Task';
+                
+                return (
                 <tr 
-                  key={task.id} 
-                  onClick={() => navigate(`/tasks/view/${task.id}`)}
+                  key={displayId} 
+                  onClick={() => navigate(`/tasks/view/${displayId}`)}
                   className={cn("transition-all duration-200 group cursor-pointer", 
                   isDarkMode ? "hover:bg-slate-700/40" : "hover:bg-slate-50",
                   idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/20" : "bg-slate-50/50")
                 )}>
-                  <td className="px-3 py-4 font-bold text-blue-600 dark:text-blue-400">{task.id}</td>
+                  <td className="px-3 py-4 font-bold text-blue-600 dark:text-blue-400">{displayId}</td>
                   <td className="px-3 py-4">
-                    <p className={cn("font-bold text-base", isDarkMode ? "text-slate-100" : "text-slate-900")}>{task.title}</p>
+                    <p className={cn("font-bold text-base", isDarkMode ? "text-slate-100" : "text-slate-900")}>{displayTitle}</p>
                     {task.reference && (
                       <p className={cn("text-xs font-medium mt-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.reference}</p>
                     )}
                   </td>
                   <td className="px-3 py-4">
-                    <p className={cn("font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{task.category}</p>
-                    <p className={cn("text-xs font-medium mt-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.subCategory}</p>
+                    <p className={cn("font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{displayCategory}</p>
+                    <p className={cn("text-xs font-medium mt-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>{displaySubCategory}</p>
                   </td>
                   <td className={cn("px-3 py-4 font-bold", isDarkMode ? "text-slate-300" : "text-slate-700")}>
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-sm overflow-hidden">
-                        {employees?.find(e => e.name === task.assignedTo)?.avatar ? (
-                          <img src={employees.find(e => e.name === task.assignedTo).avatar} alt={task.assignedTo} className="w-full h-full object-cover" />
+                        {employees?.find(e => e.name === displayAssignee)?.avatar ? (
+                          <img src={employees.find(e => e.name === displayAssignee).avatar} alt={displayAssignee} className="w-full h-full object-cover" />
                         ) : (
-                          (task.assignedTo || 'U').substring(0, 2).toUpperCase()
+                          (displayAssignee || 'U').substring(0, 2).toUpperCase()
                         )}
                       </div>
-                      <span className="truncate max-w-[100px]">{task.assignedTo || 'Unassigned'}</span>
+                      <span className="truncate max-w-[100px]">{displayAssignee}</span>
                     </div>
                   </td>
                   <td className="px-3 py-4">
-                    <span className={cn("px-2 py-1.5 rounded-xl text-xs font-bold tracking-wide whitespace-nowrap", getPriorityColor(task.priority))}>
-                      {task.priority}
+                    <span className={cn("px-2 py-1.5 rounded-xl text-xs font-bold tracking-wide whitespace-nowrap", getPriorityColor(displayPriority))}>
+                      {displayPriority}
                     </span>
                   </td>
                   <td className={cn("px-3 py-4 font-semibold whitespace-nowrap", isDarkMode ? "text-slate-300" : "text-slate-700")}>{task.dueDate}</td>
                   <td className="px-3 py-4 whitespace-nowrap">
-                    <StatusBadge status={task.status} isDarkMode={isDarkMode} />
+                    <StatusBadge status={displayStatus} isDarkMode={isDarkMode} />
                   </td>
                   <td className="px-3 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {task.category === 'Development' && task.subCategory === 'Software Development' && (
+                      {displayCategory === 'Development' && displaySubCategory === 'Software Development' && (
                         <Link 
-                          to={`/tasks/waterfall/${task.id}`} 
+                          to={`/tasks/waterfall/${displayId}`} 
                           onClick={(e) => e.stopPropagation()}
                           className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-purple-500/20 text-purple-400" : "hover:bg-purple-50 text-purple-600")}
                           title="Manage Waterfall Stages"
@@ -264,7 +381,7 @@ export default function TaskList() {
                         </Link>
                       )}
                       <Link 
-                        to={`/teams?project=${encodeURIComponent(task.title)}`}
+                        to={`/teams?project=${encodeURIComponent(displayTitle)}`}
                         onClick={(e) => e.stopPropagation()}
                         className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-indigo-500/20 text-indigo-400" : "hover:bg-indigo-50 text-indigo-600")}
                         title="Create Team"
@@ -281,23 +398,36 @@ export default function TaskList() {
                       >
                         <GitMerge className="w-4 h-4" />
                       </button>
-                      <Link to={`/tasks/edit/${task.id}`} onClick={(e) => e.stopPropagation()} className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-blue-500/20 text-blue-400" : "hover:bg-blue-50 text-blue-600")}>
-                        <Edit className="w-4 h-4" />
-                      </Link>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTaskToDelete(task.id);
-                          setDeleteModalOpen(true);
-                        }}
-                        className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-rose-500/20 text-rose-400" : "hover:bg-rose-50 text-rose-600")}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canUpdateTask && canEditTask(task) && (
+                        <Link to={`/tasks/edit/${displayId}`} onClick={(e) => e.stopPropagation()} className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-blue-500/20 text-blue-400" : "hover:bg-blue-50 text-blue-600")} title="Edit Task">
+                          <Edit className="w-4 h-4" />
+                        </Link>
+                      )}
+                      {canUpdateTask && !canEditTask(task) && !isAdmin && (
+                        <span
+                          title="Edit window expired (30 min)"
+                          className={cn("p-2 rounded-xl cursor-not-allowed opacity-40", isDarkMode ? "text-blue-400" : "text-blue-600")}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </span>
+                      )}
+                      {canDeleteTask && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTaskToDelete(displayId);
+                            setDeleteModalOpen(true);
+                          }}
+                          className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-rose-500/20 text-rose-400" : "hover:bg-rose-50 text-rose-600")}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
-              )) : (
+              )}) : (
                 <tr>
                   <td colSpan="8" className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
@@ -348,8 +478,15 @@ export default function TaskList() {
           setDeleteModalOpen(false);
           setTaskToDelete(null);
         }}
-        onConfirm={() => {
-          if (taskToDelete) deleteTask(taskToDelete);
+        onConfirm={async () => {
+          if (taskToDelete) {
+            try {
+              await taskService.deleteTask(taskToDelete);
+              await loadTasks();
+            } catch (error) {
+              console.error("Error deleting task", error);
+            }
+          }
         }}
         title="Delete Task"
         message="Are you sure you want to delete this task? This action cannot be undone."

@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard';
 import TaskList from './pages/TaskList';
 import TaskForm from './pages/TaskForm';
 import TaskView from './pages/TaskView';
-import ReviewTask from './pages/ReviewTask';
 import EmployeeList from './pages/EmployeeList';
 import EmployeeForm from './pages/EmployeeForm';
 import StatusChange from './pages/StatusChange';
@@ -14,6 +13,7 @@ import Masters from './pages/Masters';
 import TeamManagement from './pages/TeamManagement';
 import ProjectWaterfall from './pages/ProjectWaterfall';
 import ProtectedRoute from './components/ProtectedRoute';
+import Privileges from './pages/Privileges';
 
 import { useStore } from './store/useStore';
 
@@ -39,7 +39,6 @@ function App() {
             <Route path="tasks/new" element={<TaskForm />} />
             <Route path="tasks/edit/:id" element={<TaskForm />} />
             <Route path="tasks/view/:id" element={<TaskView />} />
-            <Route path="tasks/review/:id" element={<ReviewTask />} />
             <Route path="tasks/waterfall/:id" element={<ProjectWaterfall />} />
             <Route path="status-change" element={<StatusChange />} />
             <Route path="employees" element={<EmployeeList />} />
@@ -47,6 +46,7 @@ function App() {
             <Route path="employees/edit/:id" element={<EmployeeForm />} />
             <Route path="teams" element={<TeamManagement />} />
             <Route path="masters" element={<Masters />} />
+            <Route path="privileges" element={<Privileges />} />
           </Route>
         </Route>
       </Routes>
