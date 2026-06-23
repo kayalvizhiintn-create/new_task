@@ -12,7 +12,7 @@ export default function Login() {
   const navigate = useNavigate();
   const login = useStore(state => state.login);
   const isDarkMode = useStore(state => state.isDarkMode);
-  
+
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm();
@@ -62,8 +62,8 @@ export default function Login() {
 
   const inputClasses = cn(
     "w-full px-5 py-4 pl-12 rounded-2xl border outline-none transition-all duration-300 font-medium",
-    isDarkMode 
-      ? "bg-slate-900/60 border-slate-700/50 text-white focus:border-blue-500 focus:bg-slate-900 focus:ring-4 focus:ring-blue-500/20" 
+    isDarkMode
+      ? "bg-slate-900/60 border-slate-700/50 text-white focus:border-blue-500 focus:bg-slate-900 focus:ring-4 focus:ring-blue-500/20"
       : "bg-white/60 border-slate-200/80 text-slate-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/20"
   );
 
@@ -71,13 +71,13 @@ export default function Login() {
     <div className={cn("min-h-screen w-full relative overflow-hidden flex items-center justify-center transition-colors duration-700",
       isDarkMode ? "bg-[#050B14]" : "bg-[#F1F5F9]"
     )}>
-      
+
       {/* Immersive Mesh Background */}
       <div className="absolute inset-0 w-full h-full">
-        <div className={cn("absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[140px] opacity-40 transition-colors duration-700", 
+        <div className={cn("absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[140px] opacity-40 transition-colors duration-700",
           isDarkMode ? "bg-indigo-600" : "bg-indigo-300"
         )}></div>
-        <div className={cn("absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full blur-[140px] opacity-40 transition-colors duration-700", 
+        <div className={cn("absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full blur-[140px] opacity-40 transition-colors duration-700",
           isDarkMode ? "bg-blue-600" : "bg-blue-300"
         )}></div>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.04] mix-blend-overlay"></div>
@@ -99,8 +99,8 @@ export default function Login() {
             </div>
           </div>
           <div className="space-y-2">
-             <div className={cn("w-full h-2 rounded-full", isDarkMode ? "bg-slate-700/50" : "bg-slate-200/50")}></div>
-             <div className={cn("w-4/5 h-2 rounded-full", isDarkMode ? "bg-slate-700/50" : "bg-slate-200/50")}></div>
+            <div className={cn("w-full h-2 rounded-full", isDarkMode ? "bg-slate-700/50" : "bg-slate-200/50")}></div>
+            <div className={cn("w-4/5 h-2 rounded-full", isDarkMode ? "bg-slate-700/50" : "bg-slate-200/50")}></div>
           </div>
         </div>
 
@@ -118,8 +118,8 @@ export default function Login() {
             </div>
           </div>
           <div className="flex gap-2">
-             <div className={cn("w-full h-8 rounded-lg", isDarkMode ? "bg-slate-700/50" : "bg-slate-200/50")}></div>
-             <div className={cn("w-full h-8 rounded-lg", isDarkMode ? "bg-slate-700/50" : "bg-slate-200/50")}></div>
+            <div className={cn("w-full h-8 rounded-lg", isDarkMode ? "bg-slate-700/50" : "bg-slate-200/50")}></div>
+            <div className={cn("w-full h-8 rounded-lg", isDarkMode ? "bg-slate-700/50" : "bg-slate-200/50")}></div>
           </div>
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function Login() {
       <div className={cn("relative z-20 w-full max-w-lg mx-4 p-8 sm:p-12 rounded-[2.5rem] border shadow-2xl backdrop-blur-2xl animate-[fadeIn_0.6s_ease-out] transition-colors duration-700",
         isDarkMode ? "bg-slate-900/40 border-slate-700/50 shadow-black/50" : "bg-white/60 border-white/80 shadow-indigo-500/10"
       )}>
-        
+
         <div className="flex flex-col items-center mb-10 text-center">
           <img src={logo1} alt="NavaNala Logo" className="w-16 h-16 rounded-2xl object-contain bg-white p-1 mb-6 shadow-xl shadow-blue-500/30" />
           <h1 className={cn("text-3xl sm:text-4xl font-extrabold tracking-tight transition-colors duration-700", isDarkMode ? "text-white" : "text-slate-900")}>
@@ -145,17 +145,17 @@ export default function Login() {
               {errorMsg}
             </div>
           )}
-          
+
           <div className="space-y-2">
             <div className="relative group">
-              <UserCircle className={cn("absolute left-4 top-4 w-5 h-5 transition-colors duration-300", 
+              <UserCircle className={cn("absolute left-4 top-4 w-5 h-5 transition-colors duration-300",
                 isDarkMode ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-500"
               )} />
-              <input 
+              <input
                 type="text"
-                {...register('bioId', { required: 'Bio ID is required' })} 
+                {...register('bioId', { required: 'Bio ID is required' })}
                 className={cn(inputClasses, errors.bioId && "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20")}
-                placeholder="Corporate Bio ID (e.g. BIO-1001)" 
+                placeholder="Corporate Bio ID (e.g. BIO-1001)"
               />
             </div>
             {errors.bioId && <p className="text-rose-500 text-xs font-bold pl-2">{errors.bioId.message}</p>}
@@ -163,14 +163,14 @@ export default function Login() {
 
           <div className="space-y-2">
             <div className="relative group">
-              <Lock className={cn("absolute left-4 top-4 w-5 h-5 transition-colors duration-300", 
+              <Lock className={cn("absolute left-4 top-4 w-5 h-5 transition-colors duration-300",
                 isDarkMode ? "text-slate-500 group-focus-within:text-blue-400" : "text-slate-400 group-focus-within:text-blue-500"
               )} />
-              <input 
+              <input
                 type="password"
-                {...register('password', { required: 'Password is required' })} 
+                {...register('password', { required: 'Password is required' })}
                 className={cn(inputClasses, errors.password && "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20")}
-                placeholder="Security Password" 
+                placeholder="Security Password"
               />
             </div>
             {errors.password && <p className="text-rose-500 text-xs font-bold pl-2">{errors.password.message}</p>}
@@ -188,8 +188,8 @@ export default function Login() {
             </button>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white transition-all duration-300 shadow-xl shadow-blue-600/20 hover:shadow-blue-600/40 hover:-translate-y-1"
           >
             Authorize Access <ArrowRight className="w-5 h-5" />
