@@ -10,6 +10,8 @@ import { subcategoryService } from '../services/subcategoryService';
 import { enumService } from '../services/enumService';
 import { employeeService } from '../services/employeeService';
 import Swal from 'sweetalert2';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 // Helper to extract id/name generically
 const getItemId = (item) => {
@@ -364,46 +366,57 @@ export default function TaskForm() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className={cn("block text-sm font-bold tracking-wide", isDarkMode ? "text-slate-300" : "text-slate-700")}>Category <span className="text-rose-500">*</span></label>
-                <button type="button" onClick={() => setShowAddCategory(true)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 p-1 bg-blue-50 dark:bg-slate-800 rounded-lg">
-                  <Plus className="w-4 h-4" />
+              <label className={cn("block text-sm font-bold tracking-wide mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Category <span className="text-rose-500">*</span></label>
+              <div className="relative">
+                <select 
+                  {...register('category', { required: 'Category is required' })} 
+                  className={cn(inputClasses, "appearance-none cursor-pointer pr-10", errors.category && "border-rose-500")}
+                >
+                  <option value="">Select Category</option>
+                  {categories.map(cat => (
+                    <option key={getItemId(cat)} value={getItemId(cat)}>{getItemName(cat)}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCategory(true)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 hover:scale-110 active:scale-95 transition-all duration-200"
+                  title="Add new category"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
-              <select 
-                {...register('category', { required: 'Category is required' })} 
-                className={cn(inputClasses, "appearance-none cursor-pointer", errors.category && "border-rose-500")}
-              >
-                <option value="">Select Category</option>
-                {categories.map(cat => (
-                  <option key={getItemId(cat)} value={getItemId(cat)}>{getItemName(cat)}</option>
-                ))}
-              </select>
               {errors.category && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.category.message}</p>}
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className={cn("block text-sm font-bold tracking-wide", isDarkMode ? "text-slate-300" : "text-slate-700")}>Sub Category <span className="text-rose-500">*</span></label>
-                <button type="button" disabled={!selectedCategory} onClick={() => setShowAddSubCategory(true)} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 p-1 bg-blue-50 dark:bg-slate-800 rounded-lg disabled:opacity-50">
-                  <Plus className="w-4 h-4" />
+              <label className={cn("block text-sm font-bold tracking-wide mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Sub Category <span className="text-rose-500">*</span></label>
+              <div className="relative">
+                <select 
+                  {...register('subCategory', { required: 'Sub Category is required' })} 
+                  className={cn(inputClasses, "appearance-none cursor-pointer pr-10", errors.subCategory && "border-rose-500")}
+                  disabled={!selectedCategory}
+                >
+                  <option value="">Select Sub Category</option>
+                  {selectedCategory && subCategories
+                    .filter(sub => {
+                      const subCatIdStr = String(sub.categoryId || sub.category_id || sub.category?.id || sub.category?._id || sub.category || '');
+                      return subCatIdStr === String(selectedCategory);
+                    })
+                    .map(sub => (
+                      <option key={getItemId(sub)} value={getItemId(sub)}>{getItemName(sub)}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!selectedCategory}
+                  onClick={() => setShowAddSubCategory(true)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 hover:scale-110 active:scale-95 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
+                  title="Add new sub category"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
-              <select 
-                {...register('subCategory', { required: 'Sub Category is required' })} 
-                className={cn(inputClasses, "appearance-none cursor-pointer", errors.subCategory && "border-rose-500")}
-                disabled={!selectedCategory}
-              >
-                <option value="">Select Sub Category</option>
-                {selectedCategory && subCategories
-                  .filter(sub => {
-                    const subCatIdStr = String(sub.categoryId || sub.category_id || sub.category?.id || sub.category?._id || sub.category || '');
-                    return subCatIdStr === String(selectedCategory);
-                  })
-                  .map(sub => (
-                    <option key={getItemId(sub)} value={getItemId(sub)}>{getItemName(sub)}</option>
-                ))}
-              </select>
               {errors.subCategory && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.subCategory.message}</p>}
             </div>
 
@@ -550,7 +563,23 @@ export default function TaskForm() {
                 </div>
                 <div>
                   <label className={labelClasses}>Visit Date <span className="text-rose-500">*</span></label>
-                  <input type="date" {...register('visitorDetails.date', { required: isInternalOrExternal })} className={cn(inputClasses, errors.visitorDetails?.date && "border-rose-500")} />
+                  <div className="relative">
+                    <DatePicker
+                      selected={watch('visitorDetails.date') ? new Date(watch('visitorDetails.date')) : null}
+                      onChange={(date) => {
+                        setValue('visitorDetails.date', date ? date.toISOString().split('T')[0] : '', { shouldValidate: true });
+                      }}
+                      dateFormat="dd/MM/yyyy"
+                      placeholderText="Select visit date"
+                      className={cn(inputClasses, "cursor-pointer w-full", errors.visitorDetails?.date && "border-rose-500")}
+                      wrapperClassName="w-full"
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                  <input type="hidden" {...register('visitorDetails.date', { required: isInternalOrExternal })} />
                 </div>
               </div>
 
@@ -603,34 +632,42 @@ export default function TaskForm() {
 
             <div>
               <label className={labelClasses}>Due Date <span className="text-rose-500">*</span></label>
-              <input 
-                type="date"
-                {...register('dueDate', { 
-                  required: 'Due Date is mandatory',
-                  onChange: (e) => {
-                    if (!e.target.value) return;
-                    const selected = new Date(e.target.value);
-                    const today = new Date();
-                    today.setHours(0,0,0,0);
-                    if (selected < today) {
+              <div className="relative">
+                <DatePicker
+                  selected={watch('dueDate') ? new Date(watch('dueDate')) : null}
+                  onChange={(date) => {
+                    if (!date) { setValue('dueDate', '', { shouldValidate: true }); return; }
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    if (date < today) {
                       Swal.fire({
                         title: 'Are you sure?',
-                        text: "You have selected a past date. Do you want to proceed?",
+                        text: 'You have selected a past date. Do you want to proceed?',
                         icon: 'warning',
                         showCancelButton: true,
                         confirmButtonColor: '#3085d6',
                         cancelButtonColor: '#d33',
                         confirmButtonText: 'Yes, proceed!'
-                      }).then((result) => {
-                        if (!result.isConfirmed) {
-                          setValue('dueDate', '', { shouldValidate: true });
+                      }).then((res) => {
+                        if (res.isConfirmed) {
+                          setValue('dueDate', date.toISOString().split('T')[0], { shouldValidate: true });
                         }
                       });
+                    } else {
+                      setValue('dueDate', date.toISOString().split('T')[0], { shouldValidate: true });
                     }
-                  }
-                })} 
-                className={cn(inputClasses, "cursor-pointer", errors.dueDate && "border-rose-500")} 
-              />
+                  }}
+                  dateFormat="dd/MM/yyyy"
+                  placeholderText="Select due date"
+                  className={cn(inputClasses, "cursor-pointer w-full", errors.dueDate && "border-rose-500")}
+                  wrapperClassName="w-full"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                  calendarClassName={isDarkMode ? "dark-datepicker" : ""}
+                />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+              <input type="hidden" {...register('dueDate', { required: 'Due Date is mandatory' })} />
               {errors.dueDate && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.dueDate.message}</p>}
             </div>
 
