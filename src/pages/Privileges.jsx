@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { Shield, Settings, Menu as MenuIcon, AlertCircle, CheckCircle2, ChevronRight, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { roleService } from '../services/roleService';
 import { privilegeService } from '../services/privilegeService';
 
@@ -18,7 +19,27 @@ const DEFAULT_MENUS = [
 ];
 
 export default function Privileges() {
-  const { isDarkMode } = useStore();
+  const { isDarkMode, currentUser, userPrivileges } = useStore();
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const canAccess = isAdmin || (Object.keys(userPrivileges).length === 0) || (userPrivileges['role privileges']?.canView === 1);
+
+  if (!canAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] animate-[fadeIn_0.5s_ease-out]">
+        <div className="p-4 rounded-full bg-rose-500/10 text-rose-500 mb-4 animate-[pulse_2s_infinite]">
+          <Shield className="w-12 h-12" />
+        </div>
+        <h2 className={cn("text-2xl font-bold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Access Denied</h2>
+        <p className={cn("text-sm font-medium mt-2 max-w-sm", isDarkMode ? "text-slate-400" : "text-slate-500")}>
+          You do not have the required permissions to access this page. Please contact your system administrator.
+        </p>
+        <Link to="/dashboard" className="mt-6 px-6 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow">
+          Back to Dashboard
+        </Link>
+      </div>
+    );
+  }
+
   const [roles, setRoles] = useState([]);
   const [menus, setMenus] = useState([]);
   const [selectedRoleId, setSelectedRoleId] = useState('');
@@ -304,7 +325,7 @@ export default function Privileges() {
       </div>
 
       {/* Grid structure */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         
         {/* Helper summary panel */}
         {/* <div className={cn("p-6 rounded-3xl border shadow-sm h-fit", 
@@ -330,7 +351,7 @@ export default function Privileges() {
         </div> */}
 
         {/* Privileges/Menu Management Grid */}
-        <div className="lg:col-span-2">
+        <div className="md:col-span-2">
           {loadingPrivileges || loadingRoles ? (
             <div className="space-y-4">
               {[1, 2, 3, 4].map(idx => (

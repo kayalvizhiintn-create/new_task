@@ -1,12 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { Users, Plus, UserCircle, Crown, Trash2, AlertTriangle, X } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { Users, Plus, UserCircle, Crown, Trash2, AlertTriangle, X, Shield } from 'lucide-react';
+import { useSearchParams, Link } from 'react-router-dom';
 import DiscussionForum from '../components/DiscussionForum';
 
 export default function TeamManagement() {
-  const { isDarkMode, teams, employees, tasks, createTeam, deleteTeam } = useStore();
+  const { isDarkMode, teams, employees, tasks, createTeam, deleteTeam, userPrivileges, currentUser } = useStore();
+  
+  const teamsPermissions = userPrivileges['teams'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const canView = isAdmin || (Object.keys(userPrivileges).length === 0) || teamsPermissions.canView === 1;
+  const canCreateTeam = isAdmin || (Object.keys(userPrivileges).length === 0) || teamsPermissions.canCreate === 1;
+  const canDeleteTeam = isAdmin || (Object.keys(userPrivileges).length === 0) || teamsPermissions.canDelete === 1;
+
+  if (!canView) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] animate-[fadeIn_0.5s_ease-out]">
+        <div className="p-4 rounded-full bg-rose-500/10 text-rose-500 mb-4 animate-[pulse_2s_infinite]">
+          <Shield className="w-12 h-12" />
+        </div>
+        <h2 className={cn("text-2xl font-bold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Access Denied</h2>
+        <p className={cn("text-sm font-medium mt-2 max-w-sm", isDarkMode ? "text-slate-400" : "text-slate-500")}>
+          You do not have the required permissions to access this page. Please contact your system administrator.
+        </p>
+        <Link to="/dashboard" className="mt-6 px-6 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow">
+          Back to Dashboard
+        </Link>
+      </div>
+    );
+  }
   const [searchParams] = useSearchParams();
   
   const [newTeamName, setNewTeamName] = useState('');
@@ -110,87 +133,89 @@ export default function TeamManagement() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
         {/* Left Column: Create Team & Team List */}
-        <div className="lg:col-span-1 space-y-8">
+        <div className="md:col-span-1 space-y-8">
           
           {/* Create Team Form */}
-          <div className={cn("p-6 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className={cn("p-2 rounded-xl", isDarkMode ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600")}>
-                <Plus className="w-5 h-5" />
-              </div>
-              <h2 className={cn("text-lg font-bold", isDarkMode ? "text-white" : "text-slate-900")}>Create New Team</h2>
-            </div>
-            
-            <form onSubmit={handleCreateTeam} className="space-y-6">
-              
-              <div>
-                <label className={cn("block text-sm font-bold mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Team Name <span className="text-rose-500">*</span></label>
-                <input 
-                  type="text" 
-                  value={newTeamName}
-                  onChange={(e) => setNewTeamName(e.target.value)}
-                  className={inputClasses}
-                  placeholder="e.g. Frontend Ninjas, Alpha Team..."
-                />
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-bold mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Select Project <span className="text-rose-500">*</span></label>
-                <select 
-                  value={newTeamProject}
-                  onChange={(e) => setNewTeamProject(e.target.value)}
-                  className={inputClasses}
-                >
-                  <option value="">Select a project...</option>
-                  {tasks.map(t => (
-                    <option key={t.id} value={t.title}>{t.title} ({t.id})</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className={labelClasses}>Team Lead</label>
-                <select 
-                  value={newTeamLead}
-                  onChange={(e) => setNewTeamLead(e.target.value)}
-                  className={cn(inputClasses, "appearance-none cursor-pointer")}
-                >
-                  <option value="">Select Team Lead</option>
-                  {employees.map(emp => (
-                    <option key={`lead-${emp.id}`} value={emp.name}>{emp.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className={labelClasses}>Team Members</label>
-                <div className={cn("max-h-40 overflow-y-auto p-2 border rounded-xl space-y-1 custom-scrollbar", isDarkMode ? "border-slate-700 bg-slate-900/30" : "border-slate-200 bg-slate-50")}>
-                  {employees.filter(e => e.name !== newTeamLead).map(emp => (
-                    <label key={`member-${emp.id}`} className={cn("flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors", 
-                      isDarkMode ? "hover:bg-slate-800" : "hover:bg-white"
-                    )}>
-                      <input 
-                        type="checkbox" 
-                        checked={newTeamMembers.includes(emp.name)}
-                        onChange={() => toggleMember(emp.name)}
-                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                      />
-                      <span className={cn("text-sm font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{emp.name}</span>
-                    </label>
-                  ))}
+          {canCreateTeam && (
+            <div className={cn("p-6 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className={cn("p-2 rounded-xl", isDarkMode ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600")}>
+                  <Plus className="w-5 h-5" />
                 </div>
+                <h2 className={cn("text-lg font-bold", isDarkMode ? "text-white" : "text-slate-900")}>Create New Team</h2>
               </div>
+              
+              <form onSubmit={handleCreateTeam} className="space-y-6">
+                
+                <div>
+                  <label className={cn("block text-sm font-bold mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Team Name <span className="text-rose-500">*</span></label>
+                  <input 
+                    type="text" 
+                    value={newTeamName}
+                    onChange={(e) => setNewTeamName(e.target.value)}
+                    className={inputClasses}
+                    placeholder="e.g. Frontend Ninjas, Alpha Team..."
+                  />
+                </div>
 
-              <button 
-                type="submit" 
-                className="w-full flex justify-center items-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white transition-all duration-300 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:-translate-y-0.5"
-              >
-                Create Team
-              </button>
-            </form>
-          </div>
+                <div>
+                  <label className={cn("block text-sm font-bold mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Select Project <span className="text-rose-500">*</span></label>
+                  <select 
+                    value={newTeamProject}
+                    onChange={(e) => setNewTeamProject(e.target.value)}
+                    className={inputClasses}
+                  >
+                    <option value="">Select a project...</option>
+                    {tasks.map(t => (
+                      <option key={t.id} value={t.title}>{t.title} ({t.id})</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className={labelClasses}>Team Lead</label>
+                  <select 
+                    value={newTeamLead}
+                    onChange={(e) => setNewTeamLead(e.target.value)}
+                    className={cn(inputClasses, "appearance-none cursor-pointer")}
+                  >
+                    <option value="">Select Team Lead</option>
+                    {employees.map(emp => (
+                      <option key={`lead-${emp.id}`} value={emp.name}>{emp.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClasses}>Team Members</label>
+                  <div className={cn("max-h-40 overflow-y-auto p-2 border rounded-xl space-y-1 custom-scrollbar", isDarkMode ? "border-slate-700 bg-slate-900/30" : "border-slate-200 bg-slate-50")}>
+                    {employees.filter(e => e.name !== newTeamLead).map(emp => (
+                      <label key={`member-${emp.id}`} className={cn("flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors", 
+                        isDarkMode ? "hover:bg-slate-800" : "hover:bg-white"
+                      )}>
+                        <input 
+                          type="checkbox" 
+                          checked={newTeamMembers.includes(emp.name)}
+                          onChange={() => toggleMember(emp.name)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <span className={cn("text-sm font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{emp.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="w-full flex justify-center items-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white transition-all duration-300 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:-translate-y-0.5"
+                >
+                  Create Team
+                </button>
+              </form>
+            </div>
+          )}
 
           {/* Teams List */}
           <div className={cn("p-6 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
@@ -217,12 +242,14 @@ export default function TeamManagement() {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <h3 className={cn("font-bold", isDarkMode ? "text-slate-200" : "text-slate-800")}>{team.name}</h3>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteTeam(team.id); if(selectedTeamId === team.id) setSelectedTeamId(null); }}
-                        className="text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/10 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canDeleteTeam && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); deleteTeam(team.id); if(selectedTeamId === team.id) setSelectedTeamId(null); }}
+                          className="text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/10 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 mb-2">
                       <Crown className="w-3.5 h-3.5 text-amber-500" />
@@ -248,7 +275,7 @@ export default function TeamManagement() {
         </div>
 
         {/* Right Column: Forum */}
-        <div className="lg:col-span-2 h-full flex flex-col">
+        <div className="md:col-span-2 h-full flex flex-col">
           {selectedTeam ? (
             <div className="flex flex-col h-full space-y-6">
               {/* Team Header Info */}

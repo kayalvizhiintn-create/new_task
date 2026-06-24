@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useStore } from '../store/useStore';
 
 // Configure the base URL for your API here
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5013/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://192.23.2.9:8004/api/v1';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

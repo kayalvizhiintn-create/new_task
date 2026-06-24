@@ -207,13 +207,13 @@ export default function DashboardLayout() {
                   setEmployeeForPassword(currentUser);
                   setChangePasswordOpen(true);
                 }}
-                className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-bold bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-all duration-300"
+                className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-bold bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-white transition-all duration-300"
               >
                 <Key className="w-4 h-4" /> Change Password
               </button>
               <button 
                 onClick={handleLogout}
-                className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-bold bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all duration-300"
+                className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-bold bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all duration-300"
               >
                 <LogOut className="w-4 h-4" /> Logout
               </button>

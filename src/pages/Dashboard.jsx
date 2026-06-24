@@ -46,10 +46,16 @@ const StatCard = ({ title, value, icon: Icon, gradientFrom, gradientTo, onClick 
 export default function Dashboard() {
   const { isDarkMode } = useStore();
   const navigate = useNavigate();
+
+  const getTodayString = () => {
+    const todayLocal = new Date();
+    return `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+  };
+
   const [tasks, setTasks] = useState([]);
   const [apiCategories, setApiCategories] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   React.useEffect(() => {
@@ -95,8 +101,7 @@ export default function Dashboard() {
   const newTaskCount = tasks.filter(t => matchesStatus(t, 'new')).length;
 
   // Use local date (not UTC) to avoid IST timezone mismatch
-  const todayLocal = new Date();
-  const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`;
+  const today = getTodayString();
 
   const overdueTasks = tasks.filter(t =>
     t.dueDate && t.dueDate < today && !matchesStatus(t, 'completed') && !matchesStatus(t, 'cancelled')
@@ -205,7 +210,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-7 gap-2 mb-4 text-center">
-          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
             <div key={d} className={cn("text-xs font-black uppercase tracking-wider", isDarkMode ? "text-slate-500" : "text-slate-400")}>{d}</div>
           ))}
         </div>
@@ -222,7 +227,7 @@ export default function Dashboard() {
             return (
               <button
                 key={dateStr}
-                onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                onClick={() => setSelectedDate(dateStr)}
                 className={cn("relative p-2 rounded-2xl text-sm font-bold transition-all duration-300 aspect-square flex flex-col items-center justify-center group",
                   isSelected ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-purple-500/30 scale-110 z-10" :
                     isToday ? "bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-500/50 ring-offset-2 ring-offset-white dark:ring-offset-slate-900" :
@@ -245,7 +250,7 @@ export default function Dashboard() {
               <h4 className={cn("text-base font-black tracking-tight", isDarkMode ? "text-slate-200" : "text-slate-800")}>
                 Events for <span className="text-indigo-500">{selectedDate}</span>
               </h4>
-              <button onClick={() => setSelectedDate(null)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors">Clear</button>
+              <button onClick={() => setSelectedDate(getTodayString())} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors">Today</button>
             </div>
 
             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
@@ -275,7 +280,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 lg:gap-6 mt-1">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-1">
         <StatCard title="New Task" value={newTaskCount} icon={FilePlus} gradientFrom="from-zoho-green" gradientTo="to-zoho-green-dark" onClick={() => navigate('/tasks?status=New Task')} />
         <StatCard title="In Progress" value={inProgressTasks} icon={PlayCircle} gradientFrom="from-zoho-blue" gradientTo="to-zoho-blue-dark" onClick={() => navigate('/tasks?status=In Progress')} />
         <StatCard title="On-hold" value={onHoldTasks} icon={Hand} gradientFrom="from-zoho-yellow" gradientTo="to-zoho-yellow-dark" onClick={() => navigate('/tasks?status=On-hold')} />
@@ -287,8 +292,8 @@ export default function Dashboard() {
       <div className="pt-6">
         <h2 className={cn("text-2xl font-extrabold tracking-tight mb-6", isDarkMode ? "text-white" : "text-slate-900")}>Category Breakdown</h2>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 lg:gap-8 items-start">
-          <div className="xl:col-span-3 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-start">
+          <div className="md:col-span-3 space-y-6">
             <div className={cn("rounded-xl border shadow-md transition-all duration-300 backdrop-blur-xl overflow-hidden",
               isDarkMode ? "bg-slate-900/60 border-slate-700/50" : "bg-white/90 border-slate-200"
             )}>
@@ -402,7 +407,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="xl:col-span-2 sticky top-6">
+          <div className="md:col-span-2 sticky top-6">
             {renderCalendar()}
           </div>
         </div>

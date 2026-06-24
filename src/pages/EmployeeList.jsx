@@ -19,10 +19,13 @@ export default function EmployeeList() {
   const [employeeForPassword, setEmployeeForPassword] = useState(null);
 
   const empPermissions = userPrivileges['employees'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
+  const addEmpPermissions = userPrivileges['add employee'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
   const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
-  const canCreateEmp = isAdmin || empPermissions.canCreate === 1;
-  const canUpdateEmp = isAdmin || empPermissions.canUpdate === 1;
-  const canDeleteEmp = isAdmin || empPermissions.canDelete === 1;
+  const canCreateEmp = isAdmin || (Object.keys(userPrivileges).length === 0) || (
+    empPermissions.canCreate === 1 && addEmpPermissions.canCreate === 1 && addEmpPermissions.canView === 1
+  );
+  const canUpdateEmp = isAdmin || (Object.keys(userPrivileges).length === 0) || empPermissions.canUpdate === 1;
+  const canDeleteEmp = isAdmin || (Object.keys(userPrivileges).length === 0) || empPermissions.canDelete === 1;
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -59,7 +62,7 @@ export default function EmployeeList() {
     }
   };
 
-  const canView = isAdmin || empPermissions.canView === 1;
+  const canView = isAdmin || (Object.keys(userPrivileges).length === 0) || empPermissions.canView === 1;
 
   if (!canView) {
     return (
@@ -143,7 +146,7 @@ export default function EmployeeList() {
         <div className="text-center p-16 text-slate-500 font-medium">Loading employees from database...</div>
       ) : filteredEmployees.length > 0 ? (
         viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {filteredEmployees.map((emp, index) => (
               <div 
                 key={emp.id || emp.empId || emp._id || emp.employeeId || index} 

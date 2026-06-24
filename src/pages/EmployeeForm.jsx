@@ -101,10 +101,14 @@ export default function EmployeeForm() {
         employeeName: data.name,
         bioid: parseInt(data.bioId, 10) || 0,
         email: data.email,
-        password: data.password,
         roleId: parseInt(data.role, 10) || 0,
-        location: data.place
+        location: data.place,
+        avatar: data.avatar || null
       };
+
+      if (!isEditMode) {
+        payload.password = data.password;
+      }
 
       if (isEditMode) {
         await employeeService.updateEmployee(id, payload);
@@ -129,8 +133,11 @@ export default function EmployeeForm() {
 
 
   const empPermissions = userPrivileges['employees'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
+  const addEmpPermissions = userPrivileges['add employee'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
   const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
-  const canAccess = isAdmin || (isEditMode ? empPermissions.canUpdate === 1 : empPermissions.canCreate === 1);
+  const canAccess = isAdmin || (Object.keys(userPrivileges).length === 0) || (
+    isEditMode ? empPermissions.canUpdate === 1 : (empPermissions.canCreate === 1 && addEmpPermissions.canCreate === 1 && addEmpPermissions.canView === 1)
+  );
 
   if (!canAccess) {
     return (
@@ -242,20 +249,22 @@ export default function EmployeeForm() {
               {errors.bioId && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.bioId.message}</p>}
             </div>
 
-            <div>
-              <label className={labelClasses}>Password <span className="text-rose-500">*</span></label>
-              <div className="relative">
-                <input 
-                  type="password"
-                  autoComplete="new-password"
-                  {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Minimum 6 characters' } })} 
-                  className={cn(inputClasses, errors.password && "border-rose-500")} 
-                  placeholder="Enter secure password" 
-                />
-                <Key className="w-5 h-5 absolute right-4 top-3.5 text-slate-400" />
+            {!isEditMode && (
+              <div>
+                <label className={labelClasses}>Password <span className="text-rose-500">*</span></label>
+                <div className="relative">
+                  <input 
+                    type="password"
+                    autoComplete="new-password"
+                    {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Minimum 6 characters' } })} 
+                    className={cn(inputClasses, errors.password && "border-rose-500")} 
+                    placeholder="Enter secure password" 
+                  />
+                  <Key className="w-5 h-5 absolute right-4 top-3.5 text-slate-400" />
+                </div>
+                {errors.password && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.password.message}</p>}
               </div>
-              {errors.password && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.password.message}</p>}
-            </div>
+            )}
 
             <div>
               <label className={labelClasses}>Role <span className="text-rose-500">*</span></label>

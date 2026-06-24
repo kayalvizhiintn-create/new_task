@@ -8,6 +8,8 @@ import ProjectFlow from '../components/ProjectFlow';
 import { taskService } from '../services/taskService';
 import { categoryService } from '../services/categoryService';
 import { subcategoryService } from '../services/subcategoryService';
+import { employeeService } from '../services/employeeService';
+import { enumService } from '../services/enumService';
 
 const getStatusColor = (status, isDarkMode) => {
   switch(status) {
@@ -34,17 +36,24 @@ export default function TaskList() {
   const [tasks, setTasks] = useState([]);
 
   const taskPermissions = userPrivileges['task list'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
+  const newTaskPermissions = userPrivileges['new task'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
   const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
-  const canCreateTask = isAdmin || taskPermissions.canCreate === 1;
-  const canUpdateTask = isAdmin || taskPermissions.canUpdate === 1;
-  const canDeleteTask = isAdmin || taskPermissions.canDelete === 1;
+  const canCreateTask = isAdmin || (Object.keys(userPrivileges).length === 0) || (
+    taskPermissions.canCreate === 1 && newTaskPermissions.canCreate === 1 && newTaskPermissions.canView === 1
+  );
+  const canUpdateTask = isAdmin || (Object.keys(userPrivileges).length === 0) || taskPermissions.canUpdate === 1;
+  const canDeleteTask = isAdmin || (Object.keys(userPrivileges).length === 0) || taskPermissions.canDelete === 1;
   const [apiCategories, setApiCategories] = useState([]);
   const [apiSubCategories, setApiSubCategories] = useState([]);
+  const [apiEmployees, setApiEmployees] = useState([]);
+  const [apiStatuses, setApiStatuses] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
+  const [taskNameFilter, setTaskNameFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [employeeFilter, setEmployeeFilter] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -54,22 +63,44 @@ export default function TaskList() {
   const loadTasks = async () => {
     setLoadingTasks(true);
     try {
-      const [res, cats, subs] = await Promise.all([
+      const [res, cats, subs, emps, stats] = await Promise.all([
         taskService.getAllTasks().catch(() => []),
         categoryService.getAllCategories().catch(() => []),
-        subcategoryService.getAllSubcategories().catch(() => [])
+        subcategoryService.getAllSubcategories().catch(() => []),
+        employeeService.getAllEmployees().catch(() => []),
+        enumService.getStatusDropdown().catch(() => [])
       ]);
       let fetchedTasks = Array.isArray(res) ? res : (res?.data || []);
       fetchedTasks.sort((a, b) => (b.taskId || b.id || 0) - (a.taskId || a.id || 0));
       setTasks(fetchedTasks);
       setApiCategories(Array.isArray(cats) ? cats : (cats?.data || cats?.items || []));
       setApiSubCategories(Array.isArray(subs) ? subs : (subs?.data || subs?.items || []));
+      setApiEmployees(Array.isArray(emps) ? emps : (emps?.data || emps?.items || []));
+      setApiStatuses(Array.isArray(stats) ? stats : (stats?.data || stats?.items || []));
     } catch (error) {
       console.error("Error fetching tasks", error);
     } finally {
       setLoadingTasks(false);
     }
   };
+
+  const availableCategories = React.useMemo(() => {
+    const fromApi = apiCategories.map(c => c.categoryName || c.name || c.value).filter(Boolean);
+    const all = new Set(fromApi);
+    return Array.from(all).sort();
+  }, [apiCategories]);
+
+  const availableEmployees = React.useMemo(() => {
+    const fromApi = apiEmployees.map(e => e.employeeName || e.name || e.empName).filter(Boolean);
+    const all = new Set(fromApi);
+    return Array.from(all).sort();
+  }, [apiEmployees]);
+
+  const availableStatuses = React.useMemo(() => {
+    const fromApi = apiStatuses.map(s => s.name || s.statusName || s.value).filter(Boolean);
+    const all = new Set(fromApi);
+    return Array.from(all);
+  }, [apiStatuses]);
 
   const getCategoryName = (idOrName) => {
     if (!idOrName && idOrName !== 0) return 'No Category';
@@ -92,11 +123,7 @@ export default function TaskList() {
     
     const categoryParam = searchParams.get('category');
     if (categoryParam) {
-      if (Object.keys(categories).includes(categoryParam)) {
-        setCategoryFilter(categoryParam);
-      } else if (categoryParam === 'All') {
-        setCategoryFilter('All');
-      }
+      setCategoryFilter(categoryParam);
     }
   }, [searchParams]);
 
@@ -106,6 +133,12 @@ export default function TaskList() {
     
     const matchesSearch = taskTitle.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           taskIdStr.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesTaskName = !taskNameFilter || taskTitle.toLowerCase().includes(taskNameFilter.toLowerCase());
+    
+    const displayAssignee = task.assignToName || task.assignedTo || 'Unassigned';
+    const matchesEmployee = employeeFilter === 'All' || 
+                            displayAssignee.toLowerCase().trim() === employeeFilter.toLowerCase().trim();
     
     const getStatusName = (t) => t.statusName || t.status || 'New Task';
     
@@ -139,7 +172,7 @@ export default function TaskList() {
     const targetCatName = (categoryFilter || '').toLowerCase().trim();
     const matchesCategory = categoryFilter === 'All' || taskCatName === targetCatName;
     
-    return matchesSearch && matchesStatus && matchesCategory;
+    return matchesSearch && matchesTaskName && matchesEmployee && matchesStatus && matchesCategory;
   });
 
   const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
@@ -187,11 +220,21 @@ export default function TaskList() {
     if (isAdmin) return true;
     const createdAt = task.createdTime || task.createdAt || task.CreatedTime || task.dateCreated;
     if (!createdAt) return true; // If no creation time, allow
-    const minutesSince = (Date.now() - new Date(createdAt).getTime()) / 60000;
+
+    // Safely parse the ISO date to force UTC interpretation if no offset is present
+    const parseUtcDate = (dateStr) => {
+      if (!dateStr) return new Date();
+      if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('-')) {
+        return new Date(dateStr + 'Z');
+      }
+      return new Date(dateStr);
+    };
+
+    const minutesSince = (Date.now() - parseUtcDate(createdAt).getTime()) / 60000;
     return minutesSince <= 30;
   };
 
-  const canView = isAdmin || taskPermissions.canView === 1;
+  const canView = isAdmin || (Object.keys(userPrivileges).length === 0) || taskPermissions.canView === 1;
 
   if (!canView) {
     return (
@@ -249,52 +292,88 @@ export default function TaskList() {
       </div>
 
       {/* Floating Toolbar */}
-      <div className={cn("p-2 rounded-2xl flex flex-col md:flex-row gap-3 shadow-sm",
+      <div className={cn("p-4 rounded-2xl grid grid-cols-1 md:grid-cols-5 gap-3 shadow-sm",
         isDarkMode ? "bg-slate-800/60 backdrop-blur-md" : "bg-white border border-slate-200"
       )}>
-        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl flex-1 transition-colors",
+        {/* General Search */}
+        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
           isDarkMode ? "bg-slate-900/50 focus-within:bg-slate-900" : "bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20"
         )}>
-          <Search className="w-5 h-5 text-slate-400" />
+          <Search className="w-5 h-5 text-slate-400 shrink-0" />
           <input 
             type="text" 
-            placeholder="Search tasks by title or UID..." 
+            placeholder="Search title/UID..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="bg-transparent border-none outline-none w-full text-sm font-medium placeholder:text-slate-400 dark:text-slate-100"
           />
         </div>
+
+        {/* Task Name Filter */}
+        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
+          isDarkMode ? "bg-slate-900/50 focus-within:bg-slate-900" : "bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20"
+        )}>
+          <Search className="w-5 h-5 text-slate-400 shrink-0" />
+          <input 
+            type="text" 
+            placeholder="Filter by Task Name..." 
+            value={taskNameFilter}
+            onChange={(e) => setTaskNameFilter(e.target.value)}
+            className="bg-transparent border-none outline-none w-full text-sm font-medium placeholder:text-slate-400 dark:text-slate-100"
+          />
+        </div>
         
-        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-transparent w-full md:w-auto">
-            <Filter className="w-5 h-5 text-slate-400" />
-            <select 
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className={cn("bg-transparent outline-none text-sm font-bold cursor-pointer appearance-none min-w-[140px]",
-                isDarkMode ? "text-slate-200" : "text-slate-700"
-              )}
-            >
-              <option value="All">All Categories</option>
-              {Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-transparent w-full md:w-auto">
-            <Filter className="w-5 h-5 text-slate-400" />
-            <select 
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={cn("bg-transparent outline-none text-sm font-bold cursor-pointer appearance-none min-w-[120px]",
-                isDarkMode ? "text-slate-200" : "text-slate-700"
-              )}
-            >
-              <option value="All">All Statuses</option>
-              {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-              <option value="Today created">Today Created</option>
-              <option value="Today's task">Today's Task</option>
-            </select>
-          </div>
+        {/* Category Filter */}
+        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
+          isDarkMode ? "bg-slate-900/50" : "bg-slate-50"
+        )}>
+          <Filter className="w-5 h-5 text-slate-400 shrink-0" />
+          <select 
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className={cn("bg-transparent outline-none text-sm font-bold cursor-pointer appearance-none w-full",
+              isDarkMode ? "text-slate-200" : "text-slate-700"
+            )}
+          >
+            <option value="All">All Categories</option>
+            {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        {/* Assignee/Name Filter */}
+        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
+          isDarkMode ? "bg-slate-900/50" : "bg-slate-50"
+        )}>
+          <Filter className="w-5 h-5 text-slate-400 shrink-0" />
+          <select 
+            value={employeeFilter}
+            onChange={(e) => setEmployeeFilter(e.target.value)}
+            className={cn("bg-transparent outline-none text-sm font-bold cursor-pointer appearance-none w-full",
+              isDarkMode ? "text-slate-200" : "text-slate-700"
+            )}
+          >
+            <option value="All">All Assignees</option>
+            {availableEmployees.map(emp => <option key={emp} value={emp}>{emp}</option>)}
+          </select>
+        </div>
+        
+        {/* Status Filter */}
+        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
+          isDarkMode ? "bg-slate-900/50" : "bg-slate-50"
+        )}>
+          <Filter className="w-5 h-5 text-slate-400 shrink-0" />
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className={cn("bg-transparent outline-none text-sm font-bold cursor-pointer appearance-none w-full",
+              isDarkMode ? "text-slate-200" : "text-slate-700"
+            )}
+          >
+            <option value="All">All Statuses</option>
+            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+            <option value="Today created">Today Created</option>
+            <option value="Today's task">Today's Task</option>
+          </select>
         </div>
       </div>
 
@@ -306,7 +385,7 @@ export default function TaskList() {
           <table className="w-full text-left text-sm">
             <thead className={cn("border-b", isDarkMode ? "bg-slate-900/50 border-slate-700/50" : "bg-slate-50 border-slate-200")}>
               <tr>
-                <th className={cn("px-3 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>UID</th>
+                <th className={cn("px-3 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>S.No</th>
                 <th className={cn("px-3 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>Task Details</th>
                 <th className={cn("px-3 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>Category</th>
                 <th className={cn("px-3 py-4 font-bold uppercase tracking-wider text-xs", isDarkMode ? "text-slate-400" : "text-slate-500")}>Assignee</th>
@@ -321,7 +400,9 @@ export default function TaskList() {
                 <tr><td colSpan="8" className="p-8 text-center">Loading tasks from database...</td></tr>
               ) : paginatedTasks.length > 0 ? paginatedTasks.map((task, idx) => {
                 const displayId = task.id || task.taskId || idx;
-                const displayTitle = task.title || task.taskUid || task.taskDesc || 'No Title';
+                const sNo = (currentPage - 1) * itemsPerPage + idx + 1;
+                const taskName = task.taskDesc || task.title || 'No Description';
+                const taskUid = task.taskUid || `TSK_${String(displayId).padStart(3, '0')}`;
                 const displayCategory = task.categoryName || getCategoryName(task.category || task.categoryId);
                 const displaySubCategory = task.subCategoryName || getSubCategoryName(task.subCategory || task.subCategoryId);
                 const displayAssignee = task.assignToName || task.assignedTo || 'Unassigned';
@@ -336,12 +417,19 @@ export default function TaskList() {
                   isDarkMode ? "hover:bg-slate-700/40" : "hover:bg-slate-50",
                   idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/20" : "bg-slate-50/50")
                 )}>
-                  <td className="px-3 py-4 font-bold text-blue-600 dark:text-blue-400">{displayId}</td>
+                  <td className="px-3 py-4 font-bold text-slate-500 dark:text-slate-400">{sNo}</td>
                   <td className="px-3 py-4">
-                    <p className={cn("font-bold text-base", isDarkMode ? "text-slate-100" : "text-slate-900")}>{displayTitle}</p>
-                    {task.reference && (
-                      <p className={cn("text-xs font-medium mt-1", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.reference}</p>
-                    )}
+                    <p className={cn("font-bold text-base", isDarkMode ? "text-slate-100" : "text-slate-900")}>{taskName}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400">
+                        {taskUid}
+                      </span>
+                      {task.reference && (
+                        <span className={cn("text-xs font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>
+                          • {task.reference}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-4">
                     <p className={cn("font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{displayCategory}</p>
@@ -381,7 +469,7 @@ export default function TaskList() {
                         </Link>
                       )}
                       <Link 
-                        to={`/teams?project=${encodeURIComponent(displayTitle)}`}
+                        to={`/teams?project=${encodeURIComponent(taskName)}`}
                         onClick={(e) => e.stopPropagation()}
                         className={cn("p-2 rounded-xl transition-all duration-200", isDarkMode ? "hover:bg-indigo-500/20 text-indigo-400" : "hover:bg-indigo-50 text-indigo-600")}
                         title="Create Team"

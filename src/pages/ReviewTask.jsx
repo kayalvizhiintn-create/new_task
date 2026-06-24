@@ -5,6 +5,7 @@ import { cn } from '../utils/cn';
 import { ArrowLeft, CheckCircle2, Briefcase, Calendar, AlignLeft, User } from 'lucide-react';
 import { taskService } from '../services/taskService';
 import { employeeService } from '../services/employeeService';
+import Swal from 'sweetalert2';
 
 export default function ReviewTask() {
   const { id } = useParams();
@@ -51,7 +52,12 @@ export default function ReviewTask() {
 
   const handleApprove = async () => {
     if (!assignee) {
-      alert("Please select an assignee before approving.");
+      Swal.fire({
+        title: 'Validation Error',
+        text: 'Please select an assignee before approving.',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
       return;
     }
     
@@ -65,9 +71,25 @@ export default function ReviewTask() {
         statusId: 1, // Defaulting New Task status ID to 1 if unknown
         statusName: 'New Task'
       });
+      
+      Swal.fire({
+        title: 'Approved!',
+        text: 'Task has been approved and assigned.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false
+      });
+      
       navigate('/tasks');
     } catch(e) {
       console.error("Failed to approve task", e);
+      const errorMsg = e.response?.data?.message || e.message || "An error occurred while approving the task.";
+      Swal.fire({
+        title: 'Error Approving Task',
+        text: errorMsg,
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
     }
   };
 
@@ -106,10 +128,10 @@ export default function ReviewTask() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         
         {/* Left Column: Read-Only Details */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="md:col-span-2 space-y-8">
           <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
             <SectionHeader icon={Briefcase} title="Core Details" subtitle="Basic information and categorization." />
             
@@ -218,7 +240,7 @@ export default function ReviewTask() {
         </div>
 
         {/* Right Column: Approval Action */}
-        <div className="lg:col-span-1">
+        <div className="md:col-span-1">
           <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300 sticky top-8", isDarkMode ? "bg-slate-800/60 border-slate-700/50" : "bg-white border-slate-200")}>
             <SectionHeader icon={User} title="Approval & Assignment" subtitle="Assign the task to approve it." />
             

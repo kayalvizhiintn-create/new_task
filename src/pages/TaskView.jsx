@@ -156,8 +156,8 @@ export default function TaskView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
-        <div className="xl:col-span-2 space-y-6 lg:space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="md:col-span-2 space-y-6 lg:space-y-8">
           
           {/* Main Details */}
           <div className={cn("p-6 md:p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>

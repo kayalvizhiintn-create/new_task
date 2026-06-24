@@ -1,15 +1,38 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { Activity, Clock, AlertTriangle, X } from 'lucide-react';
+import { Activity, Clock, AlertTriangle, X, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { taskService } from '../services/taskService';
 import { taskChangeStatusService } from '../services/taskChangeStatusService';
 import { enumService } from '../services/enumService';
 
 export default function StatusChange() {
-  const { isDarkMode, statuses, currentUser } = useStore();
+  const { isDarkMode, statuses, currentUser, userPrivileges } = useStore();
   const [tasks, setTasks] = useState([]);
+
+  const statusPermissions = userPrivileges['status board'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const canView = isAdmin || (Object.keys(userPrivileges).length === 0) || statusPermissions.canView === 1;
+  const canUpdateStatus = isAdmin || (Object.keys(userPrivileges).length === 0) || statusPermissions.canUpdate === 1;
+
+  if (!canView) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] animate-[fadeIn_0.5s_ease-out]">
+        <div className="p-4 rounded-full bg-rose-500/10 text-rose-500 mb-4 animate-[pulse_2s_infinite]">
+          <Shield className="w-12 h-12" />
+        </div>
+        <h2 className={cn("text-2xl font-bold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Access Denied</h2>
+        <p className={cn("text-sm font-medium mt-2 max-w-sm", isDarkMode ? "text-slate-400" : "text-slate-500")}>
+          You do not have the required permissions to access this page. Please contact your system administrator.
+        </p>
+        <Link to="/dashboard" className="mt-6 px-6 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-sm hover:shadow">
+          Back to Dashboard
+        </Link>
+      </div>
+    );
+  }
   const [apiStatuses, setApiStatuses] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -115,20 +138,7 @@ export default function StatusChange() {
       }
 
       try {
-        // Fetch the full task object to ensure we have all required integer IDs (categoryId, etc.)
-        const fullTaskRes = await taskService.getTaskById(realTaskId);
-        const fullTask = Array.isArray(fullTaskRes?.data) ? fullTaskRes.data[0] : (Array.isArray(fullTaskRes) ? fullTaskRes[0] : (fullTaskRes?.data || fullTaskRes));
-
-        if (fullTask) {
-          await taskService.updateTask(realTaskId, {
-            ...fullTask,
-            taskId: realTaskId,
-            status: statusId,
-            statusId: statusId,
-            statusName: pendingUpdate.newStatus
-          });
-        }
-
+        await taskService.updateTaskStatus(realTaskId, { status: statusId });
         await loadTasks();
       } catch (error) {
         console.error("Failed to update task status", error);
@@ -218,7 +228,9 @@ export default function StatusChange() {
                     <select
                       value={task.statusName || task.status}
                       onChange={(e) => handleStatusChange(task.id || task.taskId, e.target.value)}
-                      className={cn("appearance-none px-4 py-2 rounded-xl text-xs font-bold tracking-wide border cursor-pointer outline-none transition-all shadow-sm focus:ring-2 focus:ring-blue-500/20", 
+                      disabled={!canUpdateStatus}
+                      className={cn("appearance-none px-4 py-2 rounded-xl text-xs font-bold tracking-wide border outline-none transition-all shadow-sm focus:ring-2 focus:ring-blue-500/20", 
+                        canUpdateStatus ? "cursor-pointer" : "cursor-not-allowed opacity-75",
                         getStatusColor(task.statusName || task.status)
                       )}
                     >

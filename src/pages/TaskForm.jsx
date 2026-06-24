@@ -23,7 +23,7 @@ const getItemId = (item) => {
 const getItemName = (item) => {
   if (!item) return '';
   if (typeof item !== 'object') return item;
-  return item.name || item.title || item.value || item.categoryName || item.taskDesc || item.roleName || item.priorityName || item.statusName || item.subCategoryName || item.empName || item.employeeName || 'Unknown';
+  return item.employeeName || item.empName || item.name || item.title || item.value || item.categoryName || item.taskDesc || item.roleName || item.priorityName || item.statusName || item.subCategoryName || 'Unknown';
 };
 
 const ensureArray = (data) => {
@@ -45,6 +45,8 @@ export default function TaskForm() {
   
   const isEditMode = Boolean(id);
   const [taskToEdit, setTaskToEdit] = useState(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [categoryInitialized, setCategoryInitialized] = useState(false);
   
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
@@ -64,8 +66,10 @@ export default function TaskForm() {
   });
 
   useEffect(() => {
-    const loadDropdownData = async () => {
+    const loadAllData = async () => {
+      setIsLoadingData(true);
       try {
+        // 1. Load dropdown data first
         const [cats, subs, pris, stats, emps] = await Promise.all([
           categoryService.getAllCategories().catch(() => []),
           subcategoryService.getAllSubcategories().catch(() => []),
@@ -74,37 +78,35 @@ export default function TaskForm() {
           employeeService.getAllEmployees().catch(() => [])
         ]);
 
-        setCategories(ensureArray(cats));
-        setSubCategories(ensureArray(subs));
-        setPriorities(ensureArray(pris));
-        setStatuses(ensureArray(stats));
-        setEmployees(ensureArray(emps));
-      } catch (error) {
-        console.error("Error loading dropdown data", error);
-      }
-    };
-    
-    loadDropdownData();
-  }, []);
+        const categoriesData = ensureArray(cats);
+        const subCategoriesData = ensureArray(subs);
+        const prioritiesData = ensureArray(pris);
+        const statusesData = ensureArray(stats);
+        const employeesData = ensureArray(emps);
 
-  useEffect(() => {
-    const loggedInUserId = currentUser?.employeeId || currentUser?.empId || currentUser?.id || '';
-    if (isEditMode) {
-      const loadTask = async () => {
-        try {
+        setCategories(categoriesData);
+        setSubCategories(subCategoriesData);
+        setPriorities(prioritiesData);
+        setStatuses(statusesData);
+        setEmployees(employeesData);
+
+        const loggedInUserId = currentUser?.employeeId || currentUser?.empId || currentUser?.id || '';
+
+        // 2. Load task data if in edit mode
+        if (isEditMode) {
           const res = await taskService.getTaskById(id);
           const task = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data || res));
           if (task) {
             setTaskToEdit(task);
             reset({
               title: task.taskUid || task.title || '',
-              category: String(task.categoryId || task.category || ''),
-              subCategory: String(task.subCategoryId || task.subCategory || ''),
-              assignedBy: String(task.assignBy || task.assignedBy || loggedInUserId),
-              assignedTo: String(task.assignTo || task.assignedTo || ''),
-              priority: String(task.priority || ''),
+              category: task.categoryId !== undefined && task.categoryId !== null ? String(task.categoryId) : String(task.category || ''),
+              subCategory: task.subCategoryId !== undefined && task.subCategoryId !== null ? String(task.subCategoryId) : String(task.subCategory || ''),
+              assignedBy: task.assignBy !== undefined && task.assignBy !== null ? String(task.assignBy) : String(task.assignedBy || loggedInUserId),
+              assignedTo: task.assignTo !== undefined && task.assignTo !== null ? String(task.assignTo) : String(task.assignedTo || ''),
+              priority: task.priority !== undefined && task.priority !== null ? String(task.priority) : '',
               dueDate: task.dueDate || '',
-              status: String(task.status || '2'),
+              status: task.status !== undefined && task.status !== null ? String(task.status) : '2',
               description: task.taskDesc || task.description || '',
               notes: task.notes || '',
               referrerDetails: task.referrerDetails || {},
@@ -112,37 +114,41 @@ export default function TaskForm() {
               visitorDetails: task.visitorDetails || { extraMembers: [] }
             });
           }
-        } catch (error) {
-          console.error("Error fetching task", error);
+        } else {
+          // New task mode
+          const savedDraft = localStorage.getItem('draftTaskForm');
+          if (savedDraft) {
+            try {
+              reset(JSON.parse(savedDraft));
+            } catch(e) {
+              console.error("Failed to parse draft form", e);
+            }
+          } else {
+            reset({
+              title: '',
+              category: '',
+              subCategory: '',
+              assignedBy: String(loggedInUserId),
+              assignedTo: '',
+              priority: '',
+              dueDate: '',
+              status: '2',
+              description: '',
+              notes: '',
+              referrerDetails: {},
+              meetingPersonDetails: {},
+              visitorDetails: { extraMembers: [] }
+            });
+          }
         }
-      };
-      loadTask();
-    } else {
-      const savedDraft = localStorage.getItem('draftTaskForm');
-      if (savedDraft) {
-        try {
-          reset(JSON.parse(savedDraft));
-        } catch(e) {
-          console.error("Failed to parse draft form", e);
-        }
-      } else {
-        reset({
-          title: '',
-          category: '',
-          subCategory: '',
-          assignedBy: String(loggedInUserId),
-          assignedTo: '',
-          priority: '',
-          dueDate: '',
-          status: '2',
-          description: '',
-          notes: '',
-          referrerDetails: {},
-          meetingPersonDetails: {},
-          visitorDetails: { extraMembers: [] }
-        });
+      } catch (error) {
+        console.error("Error loading form data", error);
+      } finally {
+        setIsLoadingData(false);
       }
-    }
+    };
+    
+    loadAllData();
   }, [isEditMode, id, currentUser, reset]);
 
   const formData = watch();
@@ -174,11 +180,18 @@ export default function TaskForm() {
   };
 
   useEffect(() => {
-    if (!isEditMode || (isEditMode && selectedCategory !== String(taskToEdit?.categoryId || taskToEdit?.category))) {
-      // Don't auto-reset subcategory initially when editing, only when category changes later
-      if (!isEditMode) setValue('subCategory', '');
+    if (isEditMode && taskToEdit) {
+      if (!categoryInitialized && selectedCategory === String(taskToEdit.categoryId || taskToEdit.category)) {
+        setCategoryInitialized(true);
+        return;
+      }
+      if (categoryInitialized) {
+        setValue('subCategory', '');
+      }
+    } else if (!isEditMode) {
+      setValue('subCategory', '');
     }
-  }, [selectedCategory, isEditMode, setValue, taskToEdit]);
+  }, [selectedCategory, isEditMode, setValue, taskToEdit, categoryInitialized]);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -254,13 +267,34 @@ export default function TaskForm() {
 
       if (isEditMode) {
         await taskService.updateTask(id, payload);
+        Swal.fire({
+          title: 'Success!',
+          text: 'Task updated successfully.',
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false
+        });
       } else {
         await taskService.createTask(payload);
         localStorage.removeItem('draftTaskForm');
+        Swal.fire({
+          title: 'Success!',
+          text: 'Task created successfully.',
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false
+        });
       }
       navigate('/tasks');
     } catch (error) {
       console.error("Failed to save task", error);
+      const errorMsg = error.response?.data?.message || error.message || "An error occurred while saving the task.";
+      Swal.fire({
+        title: 'Error Saving Task',
+        text: errorMsg,
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
     } finally {
       setLoadingForm(false);
     }
@@ -288,17 +322,39 @@ export default function TaskForm() {
   );
 
   const taskPermissions = userPrivileges['task list'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
+  const newTaskPermissions = userPrivileges['new task'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
   const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
-  const canAccess = isAdmin || (isEditMode ? taskPermissions.canUpdate === 1 : taskPermissions.canCreate === 1);
+  const canAccess = isAdmin || (Object.keys(userPrivileges).length === 0) || (
+    isEditMode ? taskPermissions.canUpdate === 1 : (taskPermissions.canCreate === 1 && newTaskPermissions.canCreate === 1 && newTaskPermissions.canView === 1)
+  );
 
   // 30-minute edit window check for non-admins (when task data is loaded in edit mode)
   const isEditWindowExpired = (() => {
     if (!isEditMode || isAdmin || !taskToEdit) return false;
     const createdAt = taskToEdit.createdTime || taskToEdit.createdAt || taskToEdit.CreatedTime;
     if (!createdAt) return false;
-    const minutesSince = (Date.now() - new Date(createdAt).getTime()) / 60000;
+
+    // Safely parse the ISO date to force UTC interpretation if no offset is present
+    const parseUtcDate = (dateStr) => {
+      if (!dateStr) return new Date();
+      if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('-')) {
+        return new Date(dateStr + 'Z');
+      }
+      return new Date(dateStr);
+    };
+
+    const minutesSince = (Date.now() - parseUtcDate(createdAt).getTime()) / 60000;
     return minutesSince > 30;
   })();
+
+  if (isLoadingData) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center min-h-[400px] animate-[fadeIn_0.5s_ease-out]">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className={cn("text-sm font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>Loading task details...</p>
+      </div>
+    );
+  }
 
   if (!canAccess) {
     return (
@@ -355,7 +411,7 @@ export default function TaskForm() {
           <SectionHeader icon={Briefcase} title="Core Details" subtitle="Basic information and categorization." />
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
+            <div className="md:col-span-2">
               <label className={labelClasses}>Task Title / UID <span className="text-rose-500">*</span></label>
               <input 
                 {...register('title', { required: 'Task title is required' })} 
@@ -461,7 +517,7 @@ export default function TaskForm() {
           <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
             <SectionHeader icon={Briefcase} title="Reference & Meeting Details" subtitle="Who referred them, and who are they meeting?" />
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               {/* Referrer Details */}
               <div className="space-y-6">
                 <h3 className={cn("text-lg font-bold border-b pb-3", isDarkMode ? "border-slate-700 text-slate-200" : "border-slate-200 text-slate-800")}>Referrer Details</h3>

@@ -308,8 +308,8 @@ export default function Masters() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        <div className={cn("w-full lg:w-64 shrink-0 flex flex-col gap-2 p-4 rounded-3xl border shadow-sm", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
+      <div className="flex flex-col md:flex-row gap-8">
+        <div className={cn("w-full md:w-64 shrink-0 flex flex-col gap-2 p-4 rounded-3xl border shadow-sm", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
