@@ -31,7 +31,7 @@ export default function ChangePasswordModal({ isOpen, onClose, employee, onSucce
   if (!isOpen || !employee) return null;
 
   // Admin users do not need to provide the current password (backend only checks for non-admins)
-  const isAdmin = currentUser?.role === 'Admin';
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'super admin';
   const requireCurrentPassword = !isAdmin;
 
   const handleSubmit = async (e) => {

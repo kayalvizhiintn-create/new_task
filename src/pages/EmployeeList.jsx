@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Link } from 'react-router-dom';
 import { cn } from '../utils/cn';
-import { Search, MapPin, Edit, Trash2, Shield, Plus, LayoutGrid, List, Key } from 'lucide-react';
-import ConfirmModal from '../components/ConfirmModal';
+import { Search, MapPin, Edit, Trash2, Shield, Plus, LayoutGrid, List, Key, RefreshCcw } from 'lucide-react';
 import { employeeService } from '../services/employeeService';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import Swal from 'sweetalert2';
 
 export default function EmployeeList() {
   const { isDarkMode, userPrivileges, currentUser } = useStore();
@@ -20,15 +20,17 @@ export default function EmployeeList() {
 
   const empPermissions = userPrivileges['employees'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
   const addEmpPermissions = userPrivileges['add employee'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
-  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'super admin';
   const canCreateEmp = isAdmin || (Object.keys(userPrivileges).length === 0) || (
     empPermissions.canCreate === 1 && addEmpPermissions.canCreate === 1 && addEmpPermissions.canView === 1
   );
   const canUpdateEmp = isAdmin || (Object.keys(userPrivileges).length === 0) || empPermissions.canUpdate === 1;
   const canDeleteEmp = isAdmin || (Object.keys(userPrivileges).length === 0) || empPermissions.canDelete === 1;
 
-  const fetchEmployees = async () => {
-    setLoading(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchEmployees = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const data = await employeeService.getAllEmployees();
       // Handle array or object response format safely
@@ -36,12 +38,21 @@ export default function EmployeeList() {
     } catch (error) {
       console.error("Error fetching employees", error);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   React.useEffect(() => {
     fetchEmployees();
+
+    // 15-minute background refresh interval
+    const intervalId = setInterval(async () => {
+      setIsRefreshing(true);
+      await fetchEmployees(true);
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }, 15 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
 
@@ -55,7 +66,9 @@ export default function EmployeeList() {
 
   const getRoleColor = (role) => {
     switch(role) {
-      case 'Admin': return isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-50 text-purple-700 border border-purple-200';
+      case 'Admin': 
+      case 'Super Admin': 
+        return isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-50 text-purple-700 border border-purple-200';
       case 'Manager': return isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-50 text-blue-700 border border-blue-200';
       case 'Developer': return isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border border-emerald-200';
       default: return isDarkMode ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' : 'bg-slate-50 text-slate-700 border border-slate-200';
@@ -206,8 +219,44 @@ export default function EmployeeList() {
                   {canDeleteEmp && (
                     <button 
                       onClick={() => {
-                        setEmployeeToDelete(emp.id || emp.empId || emp._id || emp.employeeId);
-                        setDeleteModalOpen(true);
+                        const empName = emp.name || emp.empName || emp.employeeName || 'this employee';
+                        const targetId = emp.id || emp.empId || emp._id || emp.employeeId;
+                        Swal.fire({
+                          title: 'Are you sure?',
+                          text: `Do you want to remove employee "${empName}"? This action cannot be undone.`,
+                          icon: 'warning',
+                          showCancelButton: true,
+                          confirmButtonColor: '#ef4444',
+                          cancelButtonColor: '#64748b',
+                          confirmButtonText: 'Yes, remove them!',
+                          background: isDarkMode ? '#1e293b' : '#ffffff',
+                          color: isDarkMode ? '#f8fafc' : '#0f172a',
+                        }).then(async (result) => {
+                          if (result.isConfirmed) {
+                            try {
+                              await employeeService.deleteEmployee(targetId);
+                              await fetchEmployees();
+                              Swal.fire({
+                                title: 'Removed!',
+                                text: `Employee "${empName}" has been removed.`,
+                                icon: 'success',
+                                confirmButtonColor: '#3b82f6',
+                                background: isDarkMode ? '#1e293b' : '#ffffff',
+                                color: isDarkMode ? '#f8fafc' : '#0f172a',
+                              });
+                            } catch (error) {
+                              console.error("Failed to delete employee", error);
+                              Swal.fire({
+                                title: 'Error!',
+                                text: 'Failed to remove employee.',
+                                icon: 'error',
+                                confirmButtonColor: '#3b82f6',
+                                background: isDarkMode ? '#1e293b' : '#ffffff',
+                                color: isDarkMode ? '#f8fafc' : '#0f172a',
+                              });
+                            }
+                          }
+                        });
                       }}
                       className={cn("flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-xs font-bold transition-all duration-200", 
                         isDarkMode ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400" : "bg-rose-50 hover:bg-rose-100 text-rose-600"
@@ -307,8 +356,42 @@ export default function EmployeeList() {
                             {canDeleteEmp && (
                               <button 
                                 onClick={() => {
-                                  setEmployeeToDelete(empId);
-                                  setDeleteModalOpen(true);
+                                  Swal.fire({
+                                    title: 'Are you sure?',
+                                    text: `Do you want to remove employee "${empName}"? This action cannot be undone.`,
+                                    icon: 'warning',
+                                    showCancelButton: true,
+                                    confirmButtonColor: '#ef4444',
+                                    cancelButtonColor: '#64748b',
+                                    confirmButtonText: 'Yes, remove them!',
+                                    background: isDarkMode ? '#1e293b' : '#ffffff',
+                                    color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                  }).then(async (result) => {
+                                    if (result.isConfirmed) {
+                                      try {
+                                        await employeeService.deleteEmployee(empId);
+                                        await fetchEmployees();
+                                        Swal.fire({
+                                          title: 'Removed!',
+                                          text: `Employee "${empName}" has been removed.`,
+                                          icon: 'success',
+                                          confirmButtonColor: '#3b82f6',
+                                          background: isDarkMode ? '#1e293b' : '#ffffff',
+                                          color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                        });
+                                      } catch (error) {
+                                        console.error("Failed to delete employee", error);
+                                        Swal.fire({
+                                          title: 'Error!',
+                                          text: 'Failed to remove employee.',
+                                          icon: 'error',
+                                          confirmButtonColor: '#3b82f6',
+                                          background: isDarkMode ? '#1e293b' : '#ffffff',
+                                          color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                        });
+                                      }
+                                    }
+                                  });
                                 }}
                                 className={cn("p-2 rounded-xl transition-all duration-200", 
                                   isDarkMode ? "hover:bg-rose-500/20 text-rose-400" : "hover:bg-rose-50 text-rose-600"
@@ -338,27 +421,7 @@ export default function EmployeeList() {
         </div>
       )}
 
-      <ConfirmModal 
-        isOpen={deleteModalOpen}
-        onClose={() => {
-          setDeleteModalOpen(false);
-          setEmployeeToDelete(null);
-        }}
-        onConfirm={async () => {
-          if (employeeToDelete) {
-            try {
-              // Assume ID could be named id or _id
-              const targetId = employeeToDelete.id || employeeToDelete._id || employeeToDelete;
-              await employeeService.deleteEmployee(targetId);
-              await fetchEmployees();
-            } catch (error) {
-              console.error("Failed to delete employee", error);
-            }
-          }
-        }}
-        title="Remove Employee"
-        message="Are you sure you want to remove this employee? This action cannot be undone."
-      />
+
 
       <ChangePasswordModal
         isOpen={changePasswordOpen}
@@ -369,6 +432,13 @@ export default function EmployeeList() {
         employee={employeeForPassword}
         onSuccess={() => fetchEmployees()}
       />
+
+      {isRefreshing && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg bg-indigo-600 text-white text-sm font-black tracking-wide animate-bounce">
+          <RefreshCcw className="w-4 h-4 animate-spin" />
+          <span>Refreshing...</span>
+        </div>
+      )}
     </div>
   );
 }

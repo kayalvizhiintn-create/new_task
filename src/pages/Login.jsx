@@ -26,7 +26,7 @@ export default function Login() {
         password: data.password
       };
       
-      // Call the API endpoint: http://192.23.2.9:8004/api/v1/auth/login
+      // Call the API endpoint: http://192.123.2.5:5100/api/v1/auth/login
       const response = await authService.login(payload);
       
       // Save token if returned by the backend

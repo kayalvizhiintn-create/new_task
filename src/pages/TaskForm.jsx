@@ -12,6 +12,7 @@ import { employeeService } from '../services/employeeService';
 import Swal from 'sweetalert2';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { validateEmail, validateMobile } from '../utils/validation';
 
 // Helper to extract id/name generically
 const getItemId = (item) => {
@@ -46,7 +47,7 @@ export default function TaskForm() {
   const isEditMode = Boolean(id);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [categoryInitialized, setCategoryInitialized] = useState(false);
+
   
   const [categories, setCategories] = useState([]);
   const [subCategories, setSubCategories] = useState([]);
@@ -58,7 +59,7 @@ export default function TaskForm() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showAddSubCategory, setShowAddSubCategory] = useState(false);
   const [newSubCategoryName, setNewSubCategoryName] = useState('');
-  const { register, handleSubmit, watch, setValue, control, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, watch, setValue, control, reset, formState: { errors, isDirty } } = useForm();
   
   const { fields: extraMembers, append: appendMember, remove: removeMember } = useFieldArray({
     control,
@@ -98,21 +99,30 @@ export default function TaskForm() {
           const task = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data || res));
           if (task) {
             setTaskToEdit(task);
-            reset({
-              title: task.taskUid || task.title || '',
-              category: task.categoryId !== undefined && task.categoryId !== null ? String(task.categoryId) : String(task.category || ''),
-              subCategory: task.subCategoryId !== undefined && task.subCategoryId !== null ? String(task.subCategoryId) : String(task.subCategory || ''),
-              assignedBy: task.assignBy !== undefined && task.assignBy !== null ? String(task.assignBy) : String(task.assignedBy || loggedInUserId),
-              assignedTo: task.assignTo !== undefined && task.assignTo !== null ? String(task.assignTo) : String(task.assignedTo || ''),
-              priority: task.priority !== undefined && task.priority !== null ? String(task.priority) : '',
-              dueDate: task.dueDate || '',
-              status: task.status !== undefined && task.status !== null ? String(task.status) : '2',
-              description: task.taskDesc || task.description || '',
-              notes: task.notes || '',
-              referrerDetails: task.referrerDetails || {},
-              meetingPersonDetails: task.meetingPersonDetails || {},
-              visitorDetails: task.visitorDetails || { extraMembers: [] }
-            });
+            const savedDraft = localStorage.getItem(`draftTaskForm_edit_${id}`);
+            if (savedDraft) {
+              try {
+                reset(JSON.parse(savedDraft));
+              } catch(e) {
+                console.error("Failed to parse draft edit form", e);
+              }
+            } else {
+              reset({
+                title: task.taskDesc || '',
+                category: task.categoryId !== undefined && task.categoryId !== null ? String(task.categoryId) : String(task.category || ''),
+                subCategory: task.subCategoryId !== undefined && task.subCategoryId !== null ? String(task.subCategoryId) : String(task.subCategory || ''),
+                assignedBy: task.assignBy !== undefined && task.assignBy !== null ? String(task.assignBy) : String(task.assignedBy || loggedInUserId),
+                assignedTo: task.assignTo !== undefined && task.assignTo !== null ? String(task.assignTo) : String(task.assignedTo || ''),
+                priority: task.priority !== undefined && task.priority !== null ? String(task.priority) : '',
+                dueDate: task.dueDate || '',
+                status: task.status !== undefined && task.status !== null ? String(task.status) : '2',
+                description: task.notes || '',
+                notes: task.notes || '',
+                referrerDetails: task.referrerDetails || {},
+                meetingPersonDetails: task.meetingPersonDetails || {},
+                visitorDetails: task.visitorDetails || { extraMembers: [] }
+              });
+            }
           }
         } else {
           // New task mode
@@ -154,10 +164,14 @@ export default function TaskForm() {
   const formData = watch();
   
   useEffect(() => {
-    if (!isEditMode && formData && Object.keys(formData).length > 0) {
-      localStorage.setItem('draftTaskForm', JSON.stringify(formData));
+    if (!isLoadingData && isDirty && formData && Object.keys(formData).length > 0) {
+      if (isEditMode && id) {
+        localStorage.setItem(`draftTaskForm_edit_${id}`, JSON.stringify(formData));
+      } else if (!isEditMode) {
+        localStorage.setItem('draftTaskForm', JSON.stringify(formData));
+      }
     }
-  }, [formData, isEditMode]);
+  }, [formData, isEditMode, id, isDirty, isLoadingData]);
 
   const selectedCategory = watch('category');
 
@@ -179,22 +193,14 @@ export default function TaskForm() {
     return currentUser?.name || '';
   };
 
-  useEffect(() => {
-    if (isEditMode && taskToEdit) {
-      if (!categoryInitialized && selectedCategory === String(taskToEdit.categoryId || taskToEdit.category)) {
-        setCategoryInitialized(true);
-        return;
-      }
-      if (categoryInitialized) {
-        setValue('subCategory', '');
-      }
-    } else if (!isEditMode) {
-      setValue('subCategory', '');
-    }
-  }, [selectedCategory, isEditMode, setValue, taskToEdit, categoryInitialized]);
+
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
+    if (newCategoryName.includes('_')) {
+      Swal.fire({ title: 'Error', text: 'Underscores (_) are not allowed. Please use hyphens (-) instead.', icon: 'error' });
+      return;
+    }
     try {
       await categoryService.createCategory({ categoryId: 0, categoryName: newCategoryName.trim() });
       const cats = await categoryService.getAllCategories();
@@ -210,6 +216,10 @@ export default function TaskForm() {
 
   const handleAddSubCategory = async () => {
     if (!newSubCategoryName.trim() || !selectedCategory) return;
+    if (newSubCategoryName.includes('_')) {
+      Swal.fire({ title: 'Error', text: 'Underscores (_) are not allowed. Please use hyphens (-) instead.', icon: 'error' });
+      return;
+    }
     try {
       await subcategoryService.createSubcategory({ 
         subCategoryId: 0, 
@@ -232,7 +242,7 @@ export default function TaskForm() {
     try {
       const payload = {
         taskId: isEditMode ? (parseInt(id, 10) || 0) : 0,
-        taskUid: data.title,
+        taskUid: isEditMode ? taskToEdit.taskUid : "",
         categoryId: parseInt(data.category, 10) || 0,
         subCategoryId: parseInt(data.subCategory, 10) || 0,
         assignBy: parseInt(data.assignedBy, 10) || 0, // assuming assignBy is employee ID or 0
@@ -240,8 +250,8 @@ export default function TaskForm() {
         priority: parseInt(data.priority, 10) || 0,
         dueDate: data.dueDate,
         status: parseInt(data.status, 10) || 0,
-        taskDesc: data.description || data.title,
-        notes: data.notes || ""
+        taskDesc: data.title?.trim(),
+        notes: data.notes || data.description || ""
       };
 
       if (isInternalOrExternal) {
@@ -255,18 +265,25 @@ export default function TaskForm() {
           description: data.meetingPersonDetails?.description || ""
         };
         payload.visitorDetails = {
-          expectedCount: data.visitorDetails?.expectedCount,
+          expectedCount: data.visitorDetails?.expectedCount ? parseInt(data.visitorDetails.expectedCount, 10) : null,
           date: data.visitorDetails?.date,
-          name: data.visitorDetails?.name,
-          email: data.visitorDetails?.email,
-          mobile: data.visitorDetails?.mobile,
-          company: data.visitorDetails?.company,
-          extraMembers: data.visitorDetails?.extraMembers || []
+          name: data.visitorDetails?.name?.trim() || null,
+          email: data.visitorDetails?.email?.trim() || null,
+          mobile: data.visitorDetails?.mobile?.trim() || null,
+          company: data.visitorDetails?.company?.trim() || null,
+          extraMembers: (data.visitorDetails?.extraMembers || []).map(m => ({
+            name: m.name?.trim() || null,
+            role: m.role?.trim() || null,
+            company: m.company?.trim() || null,
+            email: m.email?.trim() || null,
+            mobile: m.mobile?.trim() || null
+          }))
         };
       }
 
       if (isEditMode) {
         await taskService.updateTask(id, payload);
+        localStorage.removeItem(`draftTaskForm_edit_${id}`);
         Swal.fire({
           title: 'Success!',
           text: 'Task updated successfully.',
@@ -323,7 +340,7 @@ export default function TaskForm() {
 
   const taskPermissions = userPrivileges['task list'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
   const newTaskPermissions = userPrivileges['new task'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
-  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'super admin';
   const canAccess = isAdmin || (Object.keys(userPrivileges).length === 0) || (
     isEditMode ? taskPermissions.canUpdate === 1 : (taskPermissions.canCreate === 1 && newTaskPermissions.canCreate === 1 && newTaskPermissions.canView === 1)
   );
@@ -411,21 +428,43 @@ export default function TaskForm() {
           <SectionHeader icon={Briefcase} title="Core Details" subtitle="Basic information and categorization." />
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="md:col-span-2">
-              <label className={labelClasses}>Task Title / UID <span className="text-rose-500">*</span></label>
-              <input 
-                {...register('title', { required: 'Task title is required' })} 
-                className={cn(inputClasses, errors.title && "border-rose-500")} 
-                placeholder="Enter a descriptive task title or UID" 
-              />
-              {errors.title && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.title.message}</p>}
+            <div className={cn(isEditMode ? "md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-8" : "md:col-span-2")}>
+              <div>
+                <label className={labelClasses}>Task Title <span className="text-rose-500">*</span></label>
+                <input 
+                  {...register('title', { 
+                    required: 'Task title is required',
+                    validate: value => !value.includes('_') || 'Underscores (_) are not allowed. Please use hyphens (-) instead.'
+                  })} 
+                  className={cn(inputClasses, errors.title && "border-rose-500")} 
+                  placeholder="Enter a descriptive task title" 
+                />
+                {errors.title && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.title.message}</p>}
+              </div>
+
+              {isEditMode && (
+                <div>
+                  <label className={labelClasses}>Task UID</label>
+                  <input 
+                    type="text" 
+                    value={taskToEdit?.taskUid || ''} 
+                    readOnly 
+                    className={cn(inputClasses, "bg-slate-100/50 dark:bg-slate-900/30 cursor-not-allowed opacity-80")} 
+                  />
+                </div>
+              )}
             </div>
 
             <div>
               <label className={cn("block text-sm font-bold tracking-wide mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Category <span className="text-rose-500">*</span></label>
               <div className="relative">
                 <select 
-                  {...register('category', { required: 'Category is required' })} 
+                  {...register('category', { 
+                    required: 'Category is required',
+                    onChange: () => {
+                      setValue('subCategory', '');
+                    }
+                  })} 
                   className={cn(inputClasses, "appearance-none cursor-pointer pr-10", errors.category && "border-rose-500")}
                 >
                   <option value="">Select Category</option>
@@ -606,12 +645,29 @@ export default function TaskForm() {
                   <input {...register('visitorDetails.name')} className={inputClasses} placeholder="Name (Optional if unknown)" />
                 </div>
                 <div>
-                  <label className={labelClasses}>Visitor Email</label>
-                  <input type="email" {...register('visitorDetails.email')} className={inputClasses} placeholder="Email (Optional)" />
+                  <label className={labelClasses}>Visitor Email <span className="text-rose-500">*</span></label>
+                  <input 
+                    type="email" 
+                    {...register('visitorDetails.email', { 
+                      required: 'Visitor email is required',
+                      validate: (val) => validateEmail(val)
+                    })} 
+                    className={cn(inputClasses, errors.visitorDetails?.email && "border-rose-500")} 
+                    placeholder="e.g. name@domain.com" 
+                  />
+                  {errors.visitorDetails?.email && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.visitorDetails.email.message}</p>}
                 </div>
                 <div>
-                  <label className={labelClasses}>Visitor Mobile</label>
-                  <input {...register('visitorDetails.mobile')} className={inputClasses} placeholder="Mobile (Optional)" />
+                  <label className={labelClasses}>Visitor Mobile <span className="text-rose-500">*</span></label>
+                  <input 
+                    {...register('visitorDetails.mobile', { 
+                      required: 'Visitor mobile number is required',
+                      validate: (val) => validateMobile(val)
+                    })} 
+                    className={cn(inputClasses, errors.visitorDetails?.mobile && "border-rose-500")} 
+                    placeholder="e.g. 9876543210" 
+                  />
+                  {errors.visitorDetails?.mobile && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.visitorDetails.mobile.message}</p>}
                 </div>
                 <div>
                   <label className={labelClasses}>Visitor Company</label>
@@ -655,11 +711,42 @@ export default function TaskForm() {
                     {extraMembers.map((member, index) => (
                       <div key={member.id} className={cn("p-4 rounded-2xl border flex flex-col md:flex-row gap-4 items-start", isDarkMode ? "bg-slate-800/80 border-slate-700" : "bg-slate-50 border-slate-200")}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 flex-1 w-full">
-                          <input {...register(`visitorDetails.extraMembers.${index}.name`)} placeholder="Name" className={inputClasses} />
-                          <input {...register(`visitorDetails.extraMembers.${index}.role`)} placeholder="Role" className={inputClasses} />
-                          <input {...register(`visitorDetails.extraMembers.${index}.company`)} placeholder="Company" className={inputClasses} />
-                          <input {...register(`visitorDetails.extraMembers.${index}.email`)} placeholder="Email" className={inputClasses} />
-                          <input {...register(`visitorDetails.extraMembers.${index}.mobile`)} placeholder="Mobile" className={inputClasses} />
+                          <div className="w-full">
+                            <input 
+                              {...register(`visitorDetails.extraMembers.${index}.name`, { required: 'Name is required' })} 
+                              placeholder="Name *" 
+                              className={cn(inputClasses, errors.visitorDetails?.extraMembers?.[index]?.name && "border-rose-500")} 
+                            />
+                            {errors.visitorDetails?.extraMembers?.[index]?.name && <p className="text-rose-500 text-xs font-semibold mt-1">{errors.visitorDetails.extraMembers[index].name.message}</p>}
+                          </div>
+                          <div className="w-full">
+                            <input {...register(`visitorDetails.extraMembers.${index}.role`)} placeholder="Role" className={inputClasses} />
+                          </div>
+                          <div className="w-full">
+                            <input {...register(`visitorDetails.extraMembers.${index}.company`)} placeholder="Company" className={inputClasses} />
+                          </div>
+                          <div className="w-full">
+                            <input 
+                              {...register(`visitorDetails.extraMembers.${index}.email`, { 
+                                required: 'Email is required',
+                                validate: (val) => validateEmail(val)
+                              })} 
+                              placeholder="Email *" 
+                              className={cn(inputClasses, errors.visitorDetails?.extraMembers?.[index]?.email && "border-rose-500")} 
+                            />
+                            {errors.visitorDetails?.extraMembers?.[index]?.email && <p className="text-rose-500 text-xs font-semibold mt-1">{errors.visitorDetails.extraMembers[index].email.message}</p>}
+                          </div>
+                          <div className="w-full">
+                            <input 
+                              {...register(`visitorDetails.extraMembers.${index}.mobile`, { 
+                                required: 'Mobile is required',
+                                validate: (val) => validateMobile(val)
+                              })} 
+                              placeholder="Mobile *" 
+                              className={cn(inputClasses, errors.visitorDetails?.extraMembers?.[index]?.mobile && "border-rose-500")} 
+                            />
+                            {errors.visitorDetails?.extraMembers?.[index]?.mobile && <p className="text-rose-500 text-xs font-semibold mt-1">{errors.visitorDetails.extraMembers[index].mobile.message}</p>}
+                          </div>
                         </div>
                         <button type="button" onClick={() => removeMember(index)} className="p-3.5 rounded-xl bg-rose-100 text-rose-600 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:hover:bg-rose-500/30 transition self-end md:self-auto shrink-0">
                           <Trash2 className="w-5 h-5" />
@@ -751,21 +838,27 @@ export default function TaskForm() {
             <div>
               <label className={labelClasses}>Task Description</label>
               <textarea 
-                {...register('description')} 
+                {...register('description', {
+                  validate: value => !value || !value.includes('_') || 'Underscores (_) are not allowed. Please use hyphens (-) instead.'
+                })} 
                 rows="4" 
-                className={cn(inputClasses, "resize-y")} 
+                className={cn(inputClasses, "resize-y", errors.description && "border-rose-500")} 
                 placeholder="Provide a detailed description of the task..." 
               />
+              {errors.description && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.description.message}</p>}
             </div>
 
             <div>
               <label className={labelClasses}>Notes / Additional Context</label>
               <textarea 
-                {...register('notes')} 
+                {...register('notes', {
+                  validate: value => !value || !value.includes('_') || 'Underscores (_) are not allowed. Please use hyphens (-) instead.'
+                })} 
                 rows="2" 
-                className={cn(inputClasses, "resize-y")} 
+                className={cn(inputClasses, "resize-y", errors.notes && "border-rose-500")} 
                 placeholder="Any internal notes, links, or context..." 
               />
+              {errors.notes && <p className="text-rose-500 text-sm font-semibold mt-2">{errors.notes.message}</p>}
             </div>
           </div>
         </div>

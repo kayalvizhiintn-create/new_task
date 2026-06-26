@@ -9,7 +9,7 @@ export default function TeamManagement() {
   const { isDarkMode, teams, employees, tasks, createTeam, deleteTeam, userPrivileges, currentUser } = useStore();
   
   const teamsPermissions = userPrivileges['teams'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
-  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'super admin';
   const canView = isAdmin || (Object.keys(userPrivileges).length === 0) || teamsPermissions.canView === 1;
   const canCreateTeam = isAdmin || (Object.keys(userPrivileges).length === 0) || teamsPermissions.canCreate === 1;
   const canDeleteTeam = isAdmin || (Object.keys(userPrivileges).length === 0) || teamsPermissions.canDelete === 1;

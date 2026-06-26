@@ -20,7 +20,7 @@ const DEFAULT_MENUS = [
 
 export default function Privileges() {
   const { isDarkMode, currentUser, userPrivileges } = useStore();
-  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'super admin';
   const canAccess = isAdmin || (Object.keys(userPrivileges).length === 0) || (userPrivileges['role privileges']?.canView === 1);
 
   if (!canAccess) {

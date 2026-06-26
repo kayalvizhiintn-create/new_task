@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { ArrowLeft, CheckCircle2, Briefcase, Calendar, AlignLeft, User } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Briefcase, Calendar, AlignLeft, User, RefreshCcw } from 'lucide-react';
 import { taskService } from '../services/taskService';
 import { employeeService } from '../services/employeeService';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatter';
 import Swal from 'sweetalert2';
+
 
 export default function ReviewTask() {
   const { id } = useParams();
@@ -16,25 +18,37 @@ export default function ReviewTask() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [assignee, setAssignee] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
+    try {
+      const [taskRes, empRes] = await Promise.all([
+        taskService.getTaskById(id).catch(() => null),
+        employeeService.getAllEmployees().catch(() => [])
+      ]);
+      setTaskToEdit(taskRes?.data || taskRes || null);
+      
+      const emps = Array.isArray(empRes) ? empRes : (empRes?.data || []);
+      setEmployees(emps);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      if (!isBackground) setLoading(false);
+    }
+  };
 
   React.useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [taskRes, empRes] = await Promise.all([
-          taskService.getTaskById(id).catch(() => null),
-          employeeService.getAllEmployees().catch(() => [])
-        ]);
-        setTaskToEdit(taskRes?.data || taskRes || null);
-        
-        const emps = Array.isArray(empRes) ? empRes : (empRes?.data || []);
-        setEmployees(emps);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
+
+    // 15-minute background refresh interval
+    const intervalId = setInterval(async () => {
+      setIsRefreshing(true);
+      await fetchData(true);
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }, 15 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
   }, [id]);
 
   if (loading) {
@@ -214,7 +228,7 @@ export default function ReviewTask() {
               </div>
               <div>
                 <label className={labelClasses}>Due Date</label>
-                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.dueDate}</div>
+                <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{formatDateToDDMMYYYY(taskToEdit.dueDate)}</div>
               </div>
               <div>
                 <label className={labelClasses}>Current Status</label>
@@ -273,8 +287,14 @@ export default function ReviewTask() {
             </div>
           </div>
         </div>
-
       </div>
+
+      {isRefreshing && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg bg-indigo-600 text-white text-sm font-black tracking-wide animate-bounce">
+          <RefreshCcw className="w-4 h-4 animate-spin" />
+          <span>Refreshing...</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { cn } from '../utils/cn';
 import { ArrowLeft, GitMerge, Clock, FileText } from 'lucide-react';
 import WaterfallFlow from '../components/WaterfallFlow';
 import { taskService } from '../services/taskService';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatter';
+
 
 export default function ProjectWaterfall() {
   const { id } = useParams();
@@ -68,7 +70,7 @@ export default function ProjectWaterfall() {
           <p className={cn("mt-2 font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>Manage lifecycle stages and deadlines for {task.id}.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => navigate(-1)}
             className={cn("flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all duration-300 shadow-sm hover:shadow",
               isDarkMode ? "bg-slate-800 text-slate-200 hover:bg-slate-700" : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
@@ -79,7 +81,7 @@ export default function ProjectWaterfall() {
         </div>
       </div>
 
-      <div className={cn("p-6 md:p-8 rounded-3xl border shadow-sm transition-all duration-300", 
+      <div className={cn("p-6 md:p-8 rounded-3xl border shadow-sm transition-all duration-300",
         isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200"
       )}>
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
@@ -94,11 +96,11 @@ export default function ProjectWaterfall() {
               </span>
             </div>
           </div>
-          
+
           <div className={cn("p-4 rounded-2xl flex flex-col items-end gap-2", isDarkMode ? "bg-slate-900/50" : "bg-slate-50")}>
             <div className="flex items-center gap-2">
               <Clock className={cn("w-4 h-4", isDarkMode ? "text-slate-400" : "text-slate-500")} />
-              <span className={cn("text-sm font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>Final Due Date: {task.dueDate || 'Not set'}</span>
+              <span className={cn("text-sm font-semibold", isDarkMode ? "text-slate-300" : "text-slate-700")}>Final Due Date: {formatDateToDDMMYYYY(task.dueDate, 'Not set')}</span>
             </div>
             <div className="flex items-center gap-2">
               <FileText className={cn("w-4 h-4", isDarkMode ? "text-slate-400" : "text-slate-500")} />
@@ -109,14 +111,14 @@ export default function ProjectWaterfall() {
 
         <div className="mb-6">
           <h3 className={cn("text-lg font-bold mb-4", isDarkMode ? "text-slate-200" : "text-slate-800")}>Lifecycle Progress</h3>
-          <WaterfallFlow 
-            currentStage={task.stage || 'Requirements'} 
+          <WaterfallFlow
+            currentStage={task.stage || 'Requirements'}
             onUpdateStage={handleUpdateStage}
             deadlines={task.stageDeadlines}
             onUpdateDeadline={handleUpdateDeadline}
           />
         </div>
-        
+
         <div className={cn("p-4 rounded-2xl text-sm font-medium flex items-start gap-3", isDarkMode ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-700")}>
           <div className="mt-0.5"><Clock className="w-4 h-4" /></div>
           <p>Click on any stage above to mark it as the current active stage. Set deadlines for individual stages using the date pickers below each node. These changes are saved automatically.</p>

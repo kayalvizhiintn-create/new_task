@@ -102,29 +102,30 @@ export default function DashboardLayout() {
 
   const filteredNavItems = navItems.filter(item => {
     // Admin sees everything
-    if (currentUser?.role?.toLowerCase() === 'admin') return true;
-    
+    const roleLower = currentUser?.role?.toLowerCase();
+    if (roleLower === 'admin' || roleLower === 'super admin') return true;
+
     // If loading or if no privileges configured in DB yet, show everything
     if (loadingPrivileges || allowedMenus.size === 0) return true;
-    
+
     return allowedMenus.has(item.name.toLowerCase());
   });
 
 
   return (
-    <div className={cn("h-screen w-full overflow-hidden flex bg-slate-50 transition-colors duration-500", 
+    <div className={cn("h-screen w-full overflow-hidden flex bg-slate-50 transition-colors duration-500",
       isDarkMode ? "bg-[#0B1120] text-slate-100" : "bg-[#F8FAFC] text-slate-900"
     )}>
       {/* Mobile overlay */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Premium Dark Sidebar */}
-      <aside className={cn("fixed md:relative flex-shrink-0 transition-all duration-300 z-50 flex flex-col h-full", 
+      <aside className={cn("fixed md:relative flex-shrink-0 transition-all duration-300 z-50 flex flex-col h-full print:hidden",
         isDarkMode ? "bg-[#0F172A] border-r border-slate-800" : "bg-slate-900 text-slate-100 border-r border-slate-800",
         isSidebarOpen ? "w-64 translate-x-0" : "w-20 -translate-x-full md:translate-x-0"
       )}>
@@ -133,9 +134,9 @@ export default function DashboardLayout() {
             <img src={logo1} alt="NavaNala Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 flex-shrink-0 shadow-lg" />
             {isSidebarOpen && <span className="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent whitespace-nowrap">NavaNala</span>}
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className={cn("p-2 rounded-full transition-all duration-300 hover:bg-slate-800 text-slate-400")}
             >
@@ -146,9 +147,9 @@ export default function DashboardLayout() {
 
         {!isSidebarOpen && (
           <div className="flex justify-center mt-4">
-            <button 
+            <button
               onClick={toggleDarkMode}
-              className={cn("p-2 rounded-full transition-all duration-300", 
+              className={cn("p-2 rounded-full transition-all duration-300",
                 isDarkMode ? "hover:bg-slate-800 text-yellow-400" : "hover:bg-slate-800 text-slate-300"
               )}
             >
@@ -166,13 +167,13 @@ export default function DashboardLayout() {
               className={({ isActive }) => cn(
                 "flex items-center gap-4 rounded-xl font-medium transition-all duration-300 group",
                 isSidebarOpen ? "px-4 py-3.5" : "justify-center py-3.5",
-                isActive 
-                  ? "bg-blue-600/10 text-blue-400 shadow-[inset_4px_0_0_0_rgba(59,130,246,1)]" 
+                isActive
+                  ? "bg-blue-600/10 text-blue-400 shadow-[inset_4px_0_0_0_rgba(59,130,246,1)]"
                   : "hover:bg-slate-800/50 text-slate-400 hover:text-slate-200"
               )}
               title={!isSidebarOpen ? item.name : ""}
             >
-              <item.icon className={cn("w-5 h-5 transition-transform duration-300 group-hover:scale-110 flex-shrink-0", 
+              <item.icon className={cn("w-5 h-5 transition-transform duration-300 group-hover:scale-110 flex-shrink-0",
                 "text-inherit"
               )} />
               {isSidebarOpen && <span className="whitespace-nowrap">{item.name}</span>}
@@ -192,9 +193,9 @@ export default function DashboardLayout() {
                   <p className="font-bold text-sm text-slate-200 truncate">{currentUser?.name || 'Admin User'}</p>
                   <p className="text-xs text-slate-400 font-medium truncate">{currentUser?.bioId || 'BIO-0000'}</p>
                 </div>
-                <button 
+                <button
                   onClick={toggleDarkMode}
-                  className={cn("p-2 rounded-full transition-all duration-300 flex-shrink-0", 
+                  className={cn("p-2 rounded-full transition-all duration-300 flex-shrink-0",
                     isDarkMode ? "hover:bg-slate-700 text-yellow-400" : "hover:bg-slate-200 text-slate-500"
                   )}
                   title="Toggle Theme"
@@ -202,7 +203,7 @@ export default function DashboardLayout() {
                   {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 </button>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setEmployeeForPassword(currentUser);
                   setChangePasswordOpen(true);
@@ -211,7 +212,7 @@ export default function DashboardLayout() {
               >
                 <Key className="w-4 h-4" /> Change Password
               </button>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-sm font-bold bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all duration-300"
               >
@@ -223,7 +224,7 @@ export default function DashboardLayout() {
               <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0" title={currentUser?.name}>
                 {currentUser?.name?.substring(0, 2).toUpperCase() || 'AD'}
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setEmployeeForPassword(currentUser);
                   setChangePasswordOpen(true);
@@ -233,7 +234,7 @@ export default function DashboardLayout() {
               >
                 <Key className="w-5 h-5" />
               </button>
-              <button 
+              <button
                 onClick={handleLogout}
                 title="Logout"
                 className="p-2 rounded-xl text-rose-500 hover:bg-rose-500 hover:text-white transition-all duration-300"
@@ -248,14 +249,14 @@ export default function DashboardLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-hidden relative">
         {/* Mobile Header (visible only on mobile) */}
-        <header className={cn("md:hidden h-16 border-b flex items-center justify-between px-4 z-30",
+        <header className={cn("md:hidden h-16 border-b flex items-center justify-between px-4 z-30 print:hidden",
           isDarkMode ? "bg-[#0F172A] border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
         )}>
           <div className="flex items-center gap-3">
             <img src={logo1} alt="NavaNala Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 flex-shrink-0 shadow-lg" />
             <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent whitespace-nowrap">NavaNala</span>
           </div>
-          <button 
+          <button
             onClick={() => setIsSidebarOpen(true)}
             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >

@@ -128,9 +128,11 @@ body {
   font-weight: 700 !important;
   background: rgba(59,130,246,0.08) !important;
 }
-.react-datepicker__day--today.react-datepicker__day--selected {
+.react-datepicker__day--today.react-datepicker__day--selected,
+.react-datepicker__day--today.react-datepicker__day--keyboard-selected {
   border-color: transparent !important;
   background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+  color: #ffffff !important;
 }
 
 /* Disabled days */
@@ -243,8 +245,11 @@ body {
   border-color: #6366f1 !important;
   background: rgba(99,102,241,0.15) !important;
 }
-.dark-datepicker .react-datepicker__day--today.react-datepicker__day--selected {
+.dark-datepicker .react-datepicker__day--today.react-datepicker__day--selected,
+.dark-datepicker .react-datepicker__day--today.react-datepicker__day--keyboard-selected {
   border-color: transparent !important;
+  background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+  color: #ffffff !important;
 }
 
 .dark-datepicker .react-datepicker__day--disabled {
@@ -270,4 +275,138 @@ body {
   background: rgba(255,255,255,0.1) !important;
   border-color: rgba(255,255,255,0.15) !important;
   color: #e0e7ff !important;
+}
+
+@media print {
+  /* Set page margins and size */
+  @page {
+    size: auto;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+
+  /* Disable all animations, transitions and force opacity for print */
+  *, *:before, *:after {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Reset html, body, root, and layout containers to zero margin/padding and height auto */
+  html, body, #root, main, .space-y-6, [class*="space-y-"], .flex-1, .flex-col, .min-h-screen, .h-screen {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    flex: none !important;
+    float: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+  }
+
+  /* Hide non-printable elements */
+  aside,
+  header,
+  nav,
+  footer,
+  .print\:hidden,
+  [class*="print:hidden"],
+  [class*="print\:hidden"],
+  button,
+  a[href^="/dashboard"],
+  .react-datepicker-wrapper,
+  .react-datepicker-popper,
+  [role="dialog"],
+  .fixed,
+  .absolute,
+  select,
+  input {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 0 !important;
+  }
+
+  /* Reset sibling spacing margins */
+  .space-y-6 > * + *, [class*="space-y-"] > * + * {
+    margin-top: 0 !important;
+  }
+
+  /* Premium Data Table Printing Adjustments */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 0 !important; /* Start immediately at the top */
+    page-break-inside: auto !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important; /* Repeat header on every page */
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  th, td {
+    border: 1px solid #cbd5e1 !important; /* Visible light grey borders */
+    padding: 5px 7px !important; /* Elegant compact padding for perfect fitting */
+    color: #0f172a !important;
+    background: transparent !important;
+    font-size: 8pt !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  th {
+    font-weight: 700 !important;
+    background-color: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Adjust priority badges to print well */
+  .bg-rose-50, .bg-orange-50, .bg-blue-50, .bg-slate-50,
+  .bg-rose-500\/10, .bg-orange-500\/10, .bg-blue-500\/10, .bg-slate-500\/10 {
+    background-color: transparent !important;
+    border: 1px solid #64748b !important;
+    color: #0f172a !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact;
+  }
+}
+
+/* ========================================
+   Special Print Scaling for A5 Paper Size (Portrait)
+   ======================================== */
+@media print and (max-width: 160mm) {
+  @page {
+    margin: 4mm 6mm 4mm 6mm; /* Tighter margins for small pages */
+  }
+  
+  html, body, #root, th, td {
+    font-size: 7.5pt !important;
+  }
+  
+  th, td {
+    padding: 3px 5px !important; /* Highly compact cell spacing for A5 */
+    font-size: 7pt !important;
+  }
 }

@@ -5,6 +5,8 @@ import { X, GitCommit, Activity, User, PlusCircle, CheckCircle, Clock } from 'lu
 import { taskChangeStatusService } from '../services/taskChangeStatusService';
 import { employeeService } from '../services/employeeService';
 import { enumService } from '../services/enumService';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatter';
+
 
 export default function ProjectFlow({ task, onClose }) {
   const { isDarkMode } = useStore();
@@ -154,10 +156,7 @@ export default function ProjectFlow({ task, onClose }) {
                         {entry.action}
                       </span>
                       <span className={cn("text-xs font-semibold", isDarkMode ? "text-slate-400" : "text-slate-500")}>
-                        {new Date(entry.timestamp).toLocaleString(undefined, { 
-                          month: 'short', day: 'numeric', year: 'numeric', 
-                          hour: '2-digit', minute: '2-digit'
-                        })}
+                        {`${formatDateToDDMMYYYY(entry.timestamp)} ${new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                       </span>
                     </div>
                     <p className={cn("text-sm font-semibold mb-2", isDarkMode ? "text-slate-200" : "text-slate-800")}>

@@ -111,7 +111,7 @@ const INITIAL_CATEGORIES = {
 
 const INITIAL_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 const INITIAL_STATUSES = ['New Task', 'In Progress', 'Pending', 'On-hold', 'Completed', 'Cancelled'];
-const INITIAL_ROLES = ['Admin', 'Manager', 'Developer', 'Support', 'Sales', 'Operations'];
+const INITIAL_ROLES = ['Admin', 'Super Admin', 'Manager', 'Developer', 'Support', 'Sales', 'Operations'];
 const INITIAL_PLACES = ['Onsite', 'Remote'];
 export const INITIAL_DASHBOARD_METRICS = ['New Task', 'In Progress', 'On-hold', 'Overdue', 'Today created', "Today's task", 'Total'];
 export const INITIAL_STAGES = ['Requirements', 'Design', 'Development', 'Testing', 'Deployment', 'Maintenance'];

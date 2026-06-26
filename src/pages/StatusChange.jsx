@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
-import { Activity, Clock, AlertTriangle, X, Shield } from 'lucide-react';
+import { Activity, Clock, AlertTriangle, X, Shield, Search, RefreshCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { taskService } from '../services/taskService';
 import { taskChangeStatusService } from '../services/taskChangeStatusService';
 import { enumService } from '../services/enumService';
+import { formatDateToDDMMYYYY } from '../utils/dateFormatter';
+
 
 export default function StatusChange() {
   const { isDarkMode, statuses, currentUser, userPrivileges } = useStore();
   const [tasks, setTasks] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const statusPermissions = userPrivileges['status board'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
-  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'super admin';
   const canView = isAdmin || (Object.keys(userPrivileges).length === 0) || statusPermissions.canView === 1;
   const canUpdateStatus = isAdmin || (Object.keys(userPrivileges).length === 0) || statusPermissions.canUpdate === 1;
 
@@ -40,15 +43,17 @@ export default function StatusChange() {
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState(false);
 
-  const loadTasks = async () => {
-    setLoadingTasks(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadTasks = async (isBackground = false) => {
+    if (!isBackground) setLoadingTasks(true);
     try {
       const res = await taskService.getAllTasks();
       setTasks(Array.isArray(res) ? res : (res?.data || []));
     } catch (error) {
       console.error("Error fetching tasks", error);
     } finally {
-      setLoadingTasks(false);
+      if (!isBackground) setLoadingTasks(false);
     }
   };
 
@@ -61,6 +66,15 @@ export default function StatusChange() {
       else if (Array.isArray(res?.items)) stats = res.items;
       setApiStatuses(stats);
     }).catch(console.error);
+
+    // 15-minute background refresh interval
+    const intervalId = setInterval(async () => {
+      setIsRefreshing(true);
+      await loadTasks(true);
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }, 15 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleStatusChange = (taskId, newStatus) => {
@@ -158,7 +172,24 @@ export default function StatusChange() {
     setReasonError(false);
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now()));
+  const filteredTasks = tasks.filter(task => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+
+    const taskUid = (task.taskUid || `TSK-${String(task.taskId || task.id).padStart(3, '0')}`).toLowerCase();
+    const taskDesc = (task.taskDesc || task.title || '').toLowerCase();
+    const category = (task.categoryName || task.category || '').toLowerCase();
+    const assignedTo = (task.assignToName || task.assignedTo || '').toLowerCase();
+    const status = (task.statusName || task.status || '').toLowerCase();
+
+    return taskUid.includes(query) ||
+           taskDesc.includes(query) ||
+           category.includes(query) ||
+           assignedTo.includes(query) ||
+           status.includes(query);
+  });
+
+  const sortedTasks = [...filteredTasks].sort((a, b) => new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now()));
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -183,6 +214,24 @@ export default function StatusChange() {
         </div>
       </div>
 
+      {/* Searchbar */}
+      <div className={cn("p-4 rounded-2xl shadow-sm max-w-md",
+        isDarkMode ? "bg-slate-800/60 backdrop-blur-md" : "bg-white border border-slate-200"
+      )}>
+        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
+          isDarkMode ? "bg-slate-900/50 focus-within:bg-slate-900" : "bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20"
+        )}>
+          <Search className="w-5 h-5 text-slate-400 shrink-0" />
+          <input
+            type="text"
+            placeholder="Search tasks by title, UID, category, status..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-transparent border-none outline-none w-full text-sm font-medium placeholder:text-slate-400 dark:text-slate-100"
+          />
+        </div>
+      </div>
+
       <div className={cn("rounded-3xl border overflow-hidden shadow-sm transition-all duration-300",
         isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200"
       )}>
@@ -204,8 +253,12 @@ export default function StatusChange() {
                   idx % 2 === 0 ? "bg-transparent" : (isDarkMode ? "bg-slate-800/20" : "bg-slate-50/50")
                 )}>
                   <td className="px-6 py-5">
-                    <p className={cn("font-bold text-base", isDarkMode ? "text-slate-100" : "text-slate-900")}>{task.title || task.taskUid || task.taskDesc}</p>
-                    <p className={cn("text-xs font-medium mt-0.5", isDarkMode ? "text-slate-400" : "text-slate-500")}>{task.id || task.taskId}</p>
+                    <p className={cn("font-bold text-base", isDarkMode ? "text-slate-100" : "text-slate-900")}>
+                      {task.taskUid || `TSK-${String(task.taskId || task.id).padStart(3, '0')}`}
+                    </p>
+                    <p className={cn("text-xs font-semibold mt-1 text-slate-500 dark:text-slate-400 whitespace-pre-wrap")}>
+                      {task.taskDesc || task.title || 'No Description'}
+                    </p>
                   </td>
                   <td className="px-6 py-5">
                     <span className={cn("font-bold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{task.categoryName || task.category}</span>
@@ -221,7 +274,7 @@ export default function StatusChange() {
                   <td className="px-6 py-5">
                     <div className={cn("flex items-center gap-1.5 font-bold", isDarkMode ? "text-slate-300" : "text-slate-700")}>
                       <Clock className="w-4 h-4 text-amber-500" />
-                      {task.dueDate}
+                      {formatDateToDDMMYYYY(task.dueDate)}
                     </div>
                   </td>
                   <td className="px-6 py-5 text-right">
@@ -316,6 +369,13 @@ export default function StatusChange() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {isRefreshing && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg bg-indigo-600 text-white text-sm font-black tracking-wide animate-bounce">
+          <RefreshCcw className="w-4 h-4 animate-spin" />
+          <span>Refreshing...</span>
         </div>
       )}
     </div>

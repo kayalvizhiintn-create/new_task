@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Link } from 'react-router-dom';
 import { cn } from '../utils/cn';
-import { Settings, FolderTree, Shield, MapPin, AlertTriangle, Activity, Plus, Trash2, ChevronRight, BarChart2, Edit2, Check, X, Users, Menu } from 'lucide-react';
+import { Settings, FolderTree, Shield, MapPin, AlertTriangle, Activity, Plus, Trash2, ChevronRight, BarChart2, Edit2, Check, X, Users, Menu, RefreshCcw } from 'lucide-react';
 import EmployeeList from './EmployeeList';
 import { categoryService } from '../services/categoryService';
 import { subcategoryService } from '../services/subcategoryService';
 import { roleService } from '../services/roleService';
 import { enumService } from '../services/enumService';
 import { privilegeService } from '../services/privilegeService';
+import Swal from 'sweetalert2';
 
 
 // Helper to extract string value from either a string or an object {name: '...'} or {_id: '...', name: '...'}
@@ -41,9 +42,10 @@ const SimpleListManager = ({ title, fetchFn, addFn, updateFn, deleteFn, readOnly
   const [editingItem, setEditingItem] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       if (fetchFn) {
         const res = await fetchFn();
@@ -52,13 +54,22 @@ const SimpleListManager = ({ title, fetchFn, addFn, updateFn, deleteFn, readOnly
     } catch (error) {
       console.error(`Error fetching ${title}`, error);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+
+    // 15-minute background refresh interval
+    const intervalId = setInterval(async () => {
+      setIsRefreshing(true);
+      await loadData(true);
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }, 15 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchFn]);
 
   const handleEdit = (item) => {
     setEditingItem(item);
@@ -80,13 +91,44 @@ const SimpleListManager = ({ title, fetchFn, addFn, updateFn, deleteFn, readOnly
   
   const handleDelete = async (item) => {
     if (deleteFn) {
-      try {
-        const id = getItemId(item);
-        await deleteFn(id);
-        await loadData();
-      } catch (error) {
-        console.error("Error deleting", error);
-      }
+      const itemName = getItemName(item);
+      Swal.fire({
+        title: 'Are you sure?',
+        text: `Do you want to delete "${itemName}"? This action cannot be undone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Yes, delete it!',
+        background: isDarkMode ? '#1e293b' : '#ffffff',
+        color: isDarkMode ? '#f8fafc' : '#0f172a',
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          try {
+            const id = getItemId(item);
+            await deleteFn(id);
+            await loadData();
+            Swal.fire({
+              title: 'Deleted!',
+              text: `"${itemName}" has been deleted successfully.`,
+              icon: 'success',
+              confirmButtonColor: '#3b82f6',
+              background: isDarkMode ? '#1e293b' : '#ffffff',
+              color: isDarkMode ? '#f8fafc' : '#0f172a',
+            });
+          } catch (error) {
+            console.error("Error deleting", error);
+            Swal.fire({
+              title: 'Error!',
+              text: 'Failed to delete the item.',
+              icon: 'error',
+              confirmButtonColor: '#3b82f6',
+              background: isDarkMode ? '#1e293b' : '#ffffff',
+              color: isDarkMode ? '#f8fafc' : '#0f172a',
+            });
+          }
+        }
+      });
     }
   };
 
@@ -178,6 +220,13 @@ const SimpleListManager = ({ title, fetchFn, addFn, updateFn, deleteFn, readOnly
           )}
         </div>
       )}
+
+      {isRefreshing && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg bg-indigo-600 text-white text-sm font-black tracking-wide animate-bounce">
+          <RefreshCcw className="w-4 h-4 animate-spin" />
+          <span>Refreshing...</span>
+        </div>
+      )}
     </div>
   );
 };
@@ -211,8 +260,10 @@ export default function Masters() {
     { id: 'menus', label: 'Menus', icon: Menu },
   ];
 
-  const loadCategories = async () => {
-    setLoadingCategories(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadCategories = async (isBackground = false) => {
+    if (!isBackground) setLoadingCategories(true);
     try {
       const catRes = await categoryService.getAllCategories();
       const subRes = await subcategoryService.getAllSubcategories();
@@ -222,7 +273,7 @@ export default function Masters() {
     } catch (error) {
       console.error("Failed to load categories", error);
     } finally {
-      setLoadingCategories(false);
+      if (!isBackground) setLoadingCategories(false);
     }
   };
 
@@ -230,6 +281,19 @@ export default function Masters() {
     if (activeTab === 'categories') {
       loadCategories();
     }
+  }, [activeTab]);
+
+  useEffect(() => {
+    // 15-minute background refresh interval
+    const intervalId = setInterval(async () => {
+      if (activeTab === 'categories') {
+        setIsRefreshing(true);
+        await loadCategories(true);
+        setTimeout(() => setIsRefreshing(false), 1000);
+      }
+    }, 15 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
   }, [activeTab]);
 
   const handleAddCategory = async (e) => {
@@ -276,7 +340,7 @@ export default function Masters() {
   });
 
   const mastersPermissions = userPrivileges['masters settings'] || { canView: 0, canCreate: 0, canUpdate: 0, canDelete: 0 };
-  const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'super admin';
   const canAccess = isAdmin || mastersPermissions.canView === 1;
 
   if (!canAccess) {
@@ -408,11 +472,43 @@ export default function Masters() {
                                   <Edit2 className="w-4 h-4" /> Edit
                                 </button>
                                 <button 
-                                  onClick={async () => {
-                                    try {
-                                      await categoryService.deleteCategory(catId);
-                                      await loadCategories();
-                                    } catch(e) { console.error(e); }
+                                  onClick={() => {
+                                    Swal.fire({
+                                      title: 'Are you sure?',
+                                      text: `Do you want to delete category "${catName}"? This will delete all its sub-categories.`,
+                                      icon: 'warning',
+                                      showCancelButton: true,
+                                      confirmButtonColor: '#ef4444',
+                                      cancelButtonColor: '#64748b',
+                                      confirmButtonText: 'Yes, delete it!',
+                                      background: isDarkMode ? '#1e293b' : '#ffffff',
+                                      color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                    }).then(async (result) => {
+                                      if (result.isConfirmed) {
+                                        try {
+                                          await categoryService.deleteCategory(catId);
+                                          await loadCategories();
+                                          Swal.fire({
+                                            title: 'Deleted!',
+                                            text: `Category "${catName}" has been deleted.`,
+                                            icon: 'success',
+                                            confirmButtonColor: '#3b82f6',
+                                            background: isDarkMode ? '#1e293b' : '#ffffff',
+                                            color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                          });
+                                        } catch(e) {
+                                          console.error(e);
+                                          Swal.fire({
+                                            title: 'Error!',
+                                            text: 'Failed to delete category.',
+                                            icon: 'error',
+                                            confirmButtonColor: '#3b82f6',
+                                            background: isDarkMode ? '#1e293b' : '#ffffff',
+                                            color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                          });
+                                        }
+                                      }
+                                    });
                                   }}
                                   className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors text-sm font-bold flex items-center gap-1.5"
                                 >
@@ -469,11 +565,43 @@ export default function Masters() {
                                   }} className="text-blue-400 hover:text-blue-600 ml-1">
                                     <Edit2 className="w-3 h-3" />
                                   </button>
-                                  <button onClick={async () => {
-                                    try {
-                                      await subcategoryService.deleteSubcategory(subId);
-                                      await loadCategories();
-                                    } catch(e) { console.error(e); }
+                                  <button onClick={() => {
+                                    Swal.fire({
+                                      title: 'Are you sure?',
+                                      text: `Do you want to delete sub-category "${subName}"?`,
+                                      icon: 'warning',
+                                      showCancelButton: true,
+                                      confirmButtonColor: '#ef4444',
+                                      cancelButtonColor: '#64748b',
+                                      confirmButtonText: 'Yes, delete it!',
+                                      background: isDarkMode ? '#1e293b' : '#ffffff',
+                                      color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                    }).then(async (result) => {
+                                      if (result.isConfirmed) {
+                                        try {
+                                          await subcategoryService.deleteSubcategory(subId);
+                                          await loadCategories();
+                                          Swal.fire({
+                                            title: 'Deleted!',
+                                            text: `Sub-category "${subName}" has been deleted.`,
+                                            icon: 'success',
+                                            confirmButtonColor: '#3b82f6',
+                                            background: isDarkMode ? '#1e293b' : '#ffffff',
+                                            color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                          });
+                                        } catch(e) {
+                                          console.error(e);
+                                          Swal.fire({
+                                            title: 'Error!',
+                                            text: 'Failed to delete sub-category.',
+                                            icon: 'error',
+                                            confirmButtonColor: '#3b82f6',
+                                            background: isDarkMode ? '#1e293b' : '#ffffff',
+                                            color: isDarkMode ? '#f8fafc' : '#0f172a',
+                                          });
+                                        }
+                                      }
+                                    });
                                   }} className="text-rose-400 hover:text-rose-600">
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -596,6 +724,13 @@ export default function Masters() {
           )}
         </div>
       </div>
+
+      {isRefreshing && activeTab === 'categories' && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg bg-indigo-600 text-white text-sm font-black tracking-wide animate-bounce">
+          <RefreshCcw className="w-4 h-4 animate-spin" />
+          <span>Refreshing...</span>
+        </div>
+      )}
     </div>
   );
 }
