@@ -154,7 +154,11 @@ export const useStore = create(
   isAuthenticated: false,
   currentUser: null,
   userPrivileges: {},
+  permissionCodes: {},
+  permissionTree: [],
   setUserPrivileges: (privileges) => set({ userPrivileges: privileges }),
+  setPermissionCodes: (codes) => set({ permissionCodes: codes }),
+  setPermissionTree: (tree) => set({ permissionTree: tree }),
   login: (bioId, password) => {
     const { employees } = get();
     const user = employees.find(e => e.bioId === bioId && e.password === password);
@@ -164,7 +168,7 @@ export const useStore = create(
     }
     return false;
   },
-  logout: () => set({ isAuthenticated: false, currentUser: null, userPrivileges: {} }),
+  logout: () => set({ isAuthenticated: false, currentUser: null, userPrivileges: {}, permissionCodes: {}, permissionTree: [] }),
   isDarkMode: false,
   toggleDarkMode: () => set((state) => {
     const newMode = !state.isDarkMode;

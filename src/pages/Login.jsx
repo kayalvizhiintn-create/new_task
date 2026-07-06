@@ -46,10 +46,14 @@ export default function Login() {
           bioId: decodedUser?.bioId || data.bioId,
           name: decodedUser?.name || response?.data?.employeeName || 'User'
         };
-        // Success: Update Zustand store to reflect authentication
+        const payload = response?.permissions_payload || response?.data?.permissions_payload || {};
+        // Success: Update Zustand store to reflect authentication and dynamically load permissions
         useStore.setState({ 
           isAuthenticated: true, 
-          currentUser: userObj
+          currentUser: userObj,
+          permissionCodes: payload.permissions || {},
+          permissionTree: payload.menuTree || [],
+          userPrivileges: payload.permissions || {}
         });
         navigate('/dashboard');
       }

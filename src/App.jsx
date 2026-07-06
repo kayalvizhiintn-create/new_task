@@ -5,18 +5,22 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useStore } from './store/useStore';
 
 // Lazy-loaded pages for code splitting
-const Dashboard       = lazy(() => import('./pages/Dashboard'));
-const TaskList        = lazy(() => import('./pages/TaskList'));
-const TaskForm        = lazy(() => import('./pages/TaskForm'));
-const TaskView        = lazy(() => import('./pages/TaskView'));
-const EmployeeList    = lazy(() => import('./pages/EmployeeList'));
-const EmployeeForm    = lazy(() => import('./pages/EmployeeForm'));
-const StatusChange    = lazy(() => import('./pages/StatusChange'));
-const Login           = lazy(() => import('./pages/Login'));
-const Masters         = lazy(() => import('./pages/Masters'));
-const TeamManagement  = lazy(() => import('./pages/TeamManagement'));
-const ProjectWaterfall= lazy(() => import('./pages/ProjectWaterfall'));
-const Privileges      = lazy(() => import('./pages/Privileges'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const TaskList = lazy(() => import('./pages/TaskList'));
+const TaskForm = lazy(() => import('./pages/TaskForm'));
+const TaskView = lazy(() => import('./pages/TaskView'));
+const EmployeeList = lazy(() => import('./pages/EmployeeList'));
+const EmployeeForm = lazy(() => import('./pages/EmployeeForm'));
+const StatusChange = lazy(() => import('./pages/StatusChange'));
+const Login = lazy(() => import('./pages/Login'));
+const Masters = lazy(() => import('./pages/Masters'));
+const TeamManagement = lazy(() => import('./pages/TeamManagement'));
+const ProjectWaterfall = lazy(() => import('./pages/ProjectWaterfall'));
+const Privileges = lazy(() => import('./pages/Privileges'));
+const WorkflowTemplates = lazy(() => import('./pages/WorkflowTemplates'));
+const ProjectsList = lazy(() => import('./pages/ProjectsList'));
+const ProjectCreate = lazy(() => import('./pages/ProjectCreate'));
+const ProjectTimelineDetails = lazy(() => import('./pages/ProjectTimelineDetails'));
 
 function PageLoader() {
   return (
@@ -60,6 +64,10 @@ function App() {
               <Route path="teams" element={<TeamManagement />} />
               <Route path="masters" element={<Masters />} />
               <Route path="privileges" element={<Privileges />} />
+              <Route path="workflows" element={<WorkflowTemplates />} />
+              <Route path="projects" element={<ProjectsList />} />
+              <Route path="projects/new" element={<ProjectCreate />} />
+              <Route path="projects/:id" element={<ProjectTimelineDetails />} />
             </Route>
           </Route>
         </Routes>

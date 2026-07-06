@@ -5,6 +5,7 @@ import { cn } from '../utils/cn';
 import { ArrowLeft, GitMerge, Clock, FileText } from 'lucide-react';
 import WaterfallFlow from '../components/WaterfallFlow';
 import { taskService } from '../services/taskService';
+import { workflowService } from '../services/workflowService';
 import { formatDateToDDMMYYYY } from '../utils/dateFormatter';
 
 
@@ -13,13 +14,18 @@ export default function ProjectWaterfall() {
   const navigate = useNavigate();
   const { isDarkMode } = useStore();
   const [task, setTask] = React.useState(null);
+  const [workflowTemplates, setWorkflowTemplates] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    taskService.getTaskById(id)
-      .then(res => {
-        const taskData = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data || res || null));
+    Promise.all([
+      taskService.getTaskById(id),
+      workflowService.getAllTemplates().catch(() => ({ data: [] }))
+    ])
+      .then(([taskRes, templatesRes]) => {
+        const taskData = Array.isArray(taskRes?.data) ? taskRes.data[0] : (Array.isArray(taskRes) ? taskRes[0] : (taskRes?.data || taskRes || null));
         setTask(taskData);
+        setWorkflowTemplates(templatesRes?.data || templatesRes || []);
       })
       .catch(e => console.error(e))
       .finally(() => setLoading(false));
@@ -40,6 +46,23 @@ export default function ProjectWaterfall() {
       </div>
     );
   }
+
+  const getSortedStages = () => {
+    if (task && task.stageDeadlines && Object.keys(task.stageDeadlines).length > 0) {
+      const taskStageNames = Object.keys(task.stageDeadlines);
+      const matchingTemplate = workflowTemplates.find(tpl => {
+        if (tpl.stages.length !== taskStageNames.length) return false;
+        return tpl.stages.every(stg => taskStageNames.includes(stg.stageName));
+      });
+      if (matchingTemplate) {
+        return [...matchingTemplate.stages]
+          .sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
+          .map(s => s.stageName);
+      }
+      return taskStageNames;
+    }
+    return ['Planning', 'Requirement Gathering', 'Designing', 'Coding', 'Testing', 'Implementation & Support'];
+  };
 
   const handleUpdateStage = async (newStage) => {
     try {
@@ -111,12 +134,17 @@ export default function ProjectWaterfall() {
 
         <div className="mb-6">
           <h3 className={cn("text-lg font-bold mb-4", isDarkMode ? "text-slate-200" : "text-slate-800")}>Lifecycle Progress</h3>
-          <WaterfallFlow
-            currentStage={task.stage || 'Requirements'}
-            onUpdateStage={handleUpdateStage}
-            deadlines={task.stageDeadlines}
-            onUpdateDeadline={handleUpdateDeadline}
-          />
+          <div className="w-full overflow-x-auto pb-4 custom-scrollbar no-scrollbar">
+            <WaterfallFlow
+              currentStage={task.stage || 'Requirements'}
+              onUpdateStage={handleUpdateStage}
+              deadlines={task.stageDeadlines}
+              onUpdateDeadline={handleUpdateDeadline}
+              stages={getSortedStages()}
+              stageTasks={task.stageTasks}
+              taskStatusName={task.statusName || task.status}
+            />
+          </div>
         </div>
 
         <div className={cn("p-4 rounded-2xl text-sm font-medium flex items-start gap-3", isDarkMode ? "bg-blue-500/10 text-blue-400" : "bg-blue-50 text-blue-700")}>

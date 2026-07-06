@@ -7,6 +7,7 @@ import { taskService } from '../services/taskService';
 import { employeeService } from '../services/employeeService';
 import { formatDateToDDMMYYYY } from '../utils/dateFormatter';
 import Swal from 'sweetalert2';
+import SearchableSelect from '../components/SearchableSelect';
 
 
 export default function ReviewTask() {
@@ -27,7 +28,8 @@ export default function ReviewTask() {
         taskService.getTaskById(id).catch(() => null),
         employeeService.getAllEmployees().catch(() => [])
       ]);
-      setTaskToEdit(taskRes?.data || taskRes || null);
+      const task = Array.isArray(taskRes?.data) ? taskRes.data[0] : (Array.isArray(taskRes) ? taskRes[0] : (taskRes?.data || taskRes));
+      setTaskToEdit(task || null);
       
       const emps = Array.isArray(empRes) ? empRes : (empRes?.data || []);
       setEmployees(emps);
@@ -173,48 +175,100 @@ export default function ReviewTask() {
             </div>
           </div>
 
-          {taskToEdit.category === 'Visits' && (
+          {(((taskToEdit.categoryName || taskToEdit.category) === 'Visits') || ((taskToEdit.categoryName || taskToEdit.category) === 'Support' && (taskToEdit.subCategoryName || taskToEdit.subCategory) === 'Visits')) && (
             <div className={cn("p-8 rounded-3xl border shadow-sm transition-all duration-300", isDarkMode ? "bg-slate-800/40 border-slate-700/50" : "bg-white border-slate-200")}>
-              <SectionHeader icon={Briefcase} title="Visitor & Meeting Details" subtitle="Reference, meeting person, and expected visitors." />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h3 className={cn("font-bold border-b pb-2", isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700")}>Referrer Details</h3>
-                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Type</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.type}</div></div>
-                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.name}</div></div>
-                  {taskToEdit.referrerDetails?.description && (
-                    <div>
-                      <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Description</span>
-                      <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 whitespace-pre-wrap min-h-[80px] h-auto")}>
-                        {taskToEdit.referrerDetails.description}
+              {((taskToEdit.categoryName || taskToEdit.category) === 'Support' && (taskToEdit.subCategoryName || taskToEdit.subCategory) === 'Visits') ? (
+                <>
+                  <SectionHeader icon={Briefcase} title="Visit & Visitors Details" subtitle="Visit information and visitor details." />
+                  
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <h3 className={cn("font-bold border-b pb-2", isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700")}>Visit Details</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Company Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitDetails?.companyName || '-'}</div></div>
+                        <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Person to Meet</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitDetails?.personToMeet || '-'}</div></div>
                       </div>
+                      {taskToEdit.visitDetails?.visitorAccompaniedBy && (
+                        <div>
+                          <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visitor Accompanied By (or Person Accompanied)</span>
+                          <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 whitespace-pre-wrap min-h-[80px] h-auto")}>
+                            {taskToEdit.visitDetails.visitorAccompaniedBy}
+                          </div>
+                        </div>
+                      )}
+                      {taskToEdit.visitDetails?.purposeOfVisit && (
+                        <div>
+                          <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Purpose of Visit</span>
+                          <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 whitespace-pre-wrap min-h-[80px] h-auto")}>
+                            {taskToEdit.visitDetails.purposeOfVisit}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="space-y-4">
-                  <h3 className={cn("font-bold border-b pb-2", isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700")}>Referred To (Meeting Person)</h3>
-                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.meetingPersonDetails?.name || '-'}</div></div>
-                  {taskToEdit.meetingPersonDetails?.description && (
-                    <div>
-                      <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Description</span>
-                      <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 whitespace-pre-wrap min-h-[80px] h-auto")}>
-                        {taskToEdit.meetingPersonDetails.description}
+                    <div className="mt-8 border-t pt-8 border-slate-200 dark:border-slate-700/50 space-y-4">
+                      <h3 className={cn("font-bold border-b pb-2", isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700")}>Visitors Details</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorsDetails?.name || '-'}</div></div>
+                        <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Company Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorsDetails?.companyName || '-'}</div></div>
+                        <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Mobile</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorsDetails?.mobile || '-'}</div></div>
+                        <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Email</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorsDetails?.email || '-'}</div></div>
                       </div>
+                      {taskToEdit.visitorsDetails?.details && (
+                        <div>
+                          <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Details</span>
+                          <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 whitespace-pre-wrap min-h-[80px] h-auto")}>
+                            {taskToEdit.visitorsDetails.details}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <SectionHeader icon={Briefcase} title="Visitor & Meeting Details" subtitle="Reference, meeting person, and expected visitors." />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <h3 className={cn("font-bold border-b pb-2", isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700")}>Referrer Details</h3>
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Type</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.type}</div></div>
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.referrerDetails?.name}</div></div>
+                      {taskToEdit.referrerDetails?.description && (
+                        <div>
+                          <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Description</span>
+                          <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 whitespace-pre-wrap min-h-[80px] h-auto")}>
+                            {taskToEdit.referrerDetails.description}
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
-              <div className="mt-8 border-t pt-8 border-slate-200 dark:border-slate-700/50">
-                <h3 className={cn("font-bold mb-4", isDarkMode ? "text-slate-300" : "text-slate-700")}>Visitor Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Expected Count</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.expectedCount || '-'}</div></div>
-                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visit Date</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.date || '-'}</div></div>
-                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visitor Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.name || '-'}</div></div>
-                  <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visitor Mobile</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.mobile || '-'}</div></div>
-                </div>
-              </div>
+                    <div className="space-y-4">
+                      <h3 className={cn("font-bold border-b pb-2", isDarkMode ? "border-slate-700 text-slate-300" : "border-slate-200 text-slate-700")}>Referred To (Meeting Person)</h3>
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.meetingPersonDetails?.name || '-'}</div></div>
+                      {taskToEdit.meetingPersonDetails?.description && (
+                        <div>
+                          <span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Description</span>
+                          <div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80 whitespace-pre-wrap min-h-[80px] h-auto")}>
+                            {taskToEdit.meetingPersonDetails.description}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 border-t pt-8 border-slate-200 dark:border-slate-700/50">
+                    <h3 className={cn("font-bold mb-4", isDarkMode ? "text-slate-300" : "text-slate-700")}>Visitor Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Expected Count</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.expectedCount || '-'}</div></div>
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visit Date</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.date || '-'}</div></div>
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visitor Name</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.name || '-'}</div></div>
+                      <div><span className="font-semibold text-xs uppercase tracking-wider text-slate-500 block mb-1">Visitor Mobile</span><div className={cn(inputClasses, "bg-slate-100 dark:bg-slate-800/80")}>{taskToEdit.visitorDetails?.mobile || '-'}</div></div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -261,16 +315,17 @@ export default function ReviewTask() {
             <div className="space-y-6">
               <div>
                 <label className={labelClasses}>Assignee <span className="text-rose-500">*</span></label>
-                <select 
+                <SearchableSelect
                   value={assignee}
                   onChange={(e) => setAssignee(e.target.value)}
-                  className={cn(inputClasses, "appearance-none cursor-pointer border-blue-400 bg-blue-50/50 dark:bg-blue-900/20")}
-                >
-                  <option value="">Select Assignee</option>
-                  {employees.map(emp => (
-                    <option key={emp.employeeId || emp.id} value={emp.employeeId || emp.id}>{emp.employeeName || emp.name}</option>
-                  ))}
-                </select>
+                  options={employees.map(emp => ({
+                    value: String(emp.employeeId || emp.id),
+                    label: emp.employeeName || emp.name
+                  }))}
+                  placeholder="Select Assignee"
+                  isDarkMode={isDarkMode}
+                  triggerClassName="border-blue-400 bg-blue-50/50 dark:bg-blue-900/20"
+                />
                 <p className={cn("text-xs mt-3", isDarkMode ? "text-slate-400" : "text-slate-500")}>
                   Selecting an assignee and clicking Approve will change the status to <strong className="text-emerald-500">Open</strong> automatically.
                 </p>

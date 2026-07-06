@@ -7,10 +7,12 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import { authService } from '../services/authService';
 import { privilegeService } from '../services/privilegeService';
 import logo1 from '../assets/logo1.jpg';
+import { employeeService } from '../services/employeeService';
+import { permissionService } from '../services/permissionService';
 
 
 export default function DashboardLayout() {
-  const { isDarkMode, toggleDarkMode, logout, currentUser } = useStore();
+  const { isDarkMode, toggleDarkMode, logout, currentUser, permissionTree = [], permissionCodes = {} } = useStore();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -31,84 +33,131 @@ export default function DashboardLayout() {
 
   const [allowedMenus, setAllowedMenus] = useState(new Set());
   const [loadingPrivileges, setLoadingPrivileges] = useState(true);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
   useEffect(() => {
     const fetchUserPrivileges = async () => {
-      if (!currentUser?.roleId) {
+      setPermissionsLoaded(false);
+      if (!currentUser) {
         setLoadingPrivileges(false);
+        setPermissionsLoaded(true);
         return;
       }
       try {
-        const [privsRes, menusRes] = await Promise.all([
-          privilegeService.getPrivilegesByRole(currentUser.roleId).catch(() => []),
-          privilegeService.getAllMenus().catch(() => [])
-        ]);
+        // Try every possible field name for employee ID
+        const empId =
+          currentUser?.employeeId ||
+          currentUser?.EmployeeId ||
+          currentUser?.emp_id ||
+          currentUser?.empId ||
+          currentUser?.userId ||
+          currentUser?.id;
 
-        const privilegesArr = Array.isArray(privsRes) ? privsRes : (privsRes?.data || privsRes?.items || []);
-        const menusArr = Array.isArray(menusRes) ? menusRes : (menusRes?.data || menusRes?.items || []);
+        console.log('[Permissions] currentUser:', currentUser, '→ empId:', empId);
 
-        const menuIdToName = {};
-        menusArr.forEach(m => {
-          menuIdToName[m.menuId] = m.menuName;
-        });
+        if (empId) {
+          const dynamicPermsRes = await permissionService.getUserPayload(empId).catch((err) => {
+            console.error('[Permissions] getUserPayload failed:', err);
+            return null;
+          });
 
-        const allowedSet = new Set();
-        privilegesArr.forEach(p => {
-          if (p.canView === 1) {
+          console.log('[Permissions] API response:', dynamicPermsRes);
+
+          if (dynamicPermsRes?.isSuccess && dynamicPermsRes.data?.permissions) {
+            const codes = dynamicPermsRes.data.permissions;
+            console.log('[Permissions] codes loaded:', codes);
+            useStore.setState({
+              permissionCodes: codes,
+              permissionTree: dynamicPermsRes.data.menuTree || []
+            });
+          } else {
+            // API returned but no permissions data — set empty safely
+            console.warn('[Permissions] API succeeded but no permissions field. Defaulting to deny-all.');
+            useStore.setState({ permissionCodes: { __loaded: true } });
+          }
+        } else {
+          console.warn('[Permissions] No empId found on currentUser. Defaulting to deny-all.');
+          useStore.setState({ permissionCodes: { __loaded: true } });
+        }
+
+        // Also load old-style privileges for canCreate/canUpdate/canDelete on components
+        if (currentUser?.roleId) {
+          const [privsRes, menusRes] = await Promise.all([
+            privilegeService.getPrivilegesByRole(currentUser.roleId).catch(() => []),
+            privilegeService.getAllMenus().catch(() => [])
+          ]);
+          const privilegesArr = Array.isArray(privsRes) ? privsRes : (privsRes?.data || []);
+          const menusArr = Array.isArray(menusRes) ? menusRes : (menusRes?.data || []);
+          const menuIdToName = {};
+          menusArr.forEach(m => { menuIdToName[m.menuId] = m.menuName; });
+          const privilegesMap = {};
+          privilegesArr.forEach(p => {
             const name = menuIdToName[p.menuId];
             if (name) {
-              allowedSet.add(name.toLowerCase());
+              privilegesMap[name.toLowerCase()] = {
+                canView: p.canView, canCreate: p.canCreate, canUpdate: p.canUpdate, canDelete: p.canDelete
+              };
             }
-          }
-        });
-
-        setAllowedMenus(allowedSet);
-
-        // Build privileges map for pages
-        const privilegesMap = {};
-        privilegesArr.forEach(p => {
-          const name = menuIdToName[p.menuId];
-          if (name) {
-            privilegesMap[name.toLowerCase()] = {
-              canView: p.canView,
-              canCreate: p.canCreate,
-              canUpdate: p.canUpdate,
-              canDelete: p.canDelete
-            };
-          }
-        });
-        useStore.setState({ userPrivileges: privilegesMap });
+          });
+          useStore.setState({ userPrivileges: privilegesMap });
+        }
       } catch (error) {
-        console.error("Failed to check user privileges", error);
+        console.error('[Permissions] fetchUserPrivileges failed:', error);
+        useStore.setState({ permissionCodes: { __loaded: true } }); // deny-all fallback
       } finally {
         setLoadingPrivileges(false);
+        setPermissionsLoaded(true);
       }
     };
 
     fetchUserPrivileges();
-  }, [currentUser]);
+  }, [currentUser?.employeeId, currentUser?.id, currentUser?.emp_id, currentUser?.empId, currentUser?.roleId]);
+
+  const [avatar, setAvatar] = useState('');
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const empId = currentUser?.employeeId || currentUser?.id || currentUser?.empId || currentUser?.emp_id;
+      if (!empId) return;
+      try {
+        const res = await employeeService.getEmployeeById(empId);
+        const empData = Array.isArray(res?.data) ? res.data[0] : (Array.isArray(res) ? res[0] : (res?.data || res));
+        if (empData && empData.avatar) {
+          setAvatar(empData.avatar);
+          if (currentUser?.avatar !== empData.avatar) {
+            useStore.setState(state => ({
+              currentUser: {
+                ...state.currentUser,
+                avatar: empData.avatar
+              }
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch logged-in employee details", error);
+      }
+    };
+    fetchProfile();
+  }, [currentUser?.employeeId, currentUser?.id, currentUser?.empId, currentUser?.emp_id]);
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Task List', path: '/tasks', icon: ListTodo },
-    { name: 'Status Board', path: '/status-change', icon: Activity },
-    { name: 'New Task', path: '/tasks/new', icon: PlusCircle },
-    { name: 'Teams', path: '/teams', icon: Users },
-    { name: 'Employees', path: '/employees', icon: Users },
-    { name: 'Add Employee', path: '/employees/new', icon: UserPlus },
-    { name: 'Role Privileges', path: '/privileges', icon: Shield },
-    { name: 'Masters Settings', path: '/masters', icon: Settings },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, code: 'dashboard.page' },
+    // { name: 'Workflows', path: '/workflows', icon: Settings, code: 'workflowmanagement.page' },
+    { name: 'Task List', path: '/tasks', icon: ListTodo, code: 'task.page' },
+    { name: 'Status Board', path: '/status-change', icon: Activity, code: 'statusboard.page' },
+    { name: 'New Task', path: '/tasks/new', icon: PlusCircle, code: 'newtask.page' },
+    // { name: 'Teams', path: '/teams', icon: Users, code: 'teams.page' },
+    { name: 'Employees', path: '/employees', icon: Users, code: 'employee.page' },
+    { name: 'Add Employee', path: '/employees/new', icon: UserPlus, code: 'addemployee.page' },
+    { name: 'Role Privileges', path: '/privileges', icon: Shield, code: 'roleprivileges.page' },
+    { name: 'Masters Settings', path: '/masters', icon: Settings, code: 'masterssettings.page' },
   ];
 
   const filteredNavItems = navItems.filter(item => {
-    // Admin sees everything
-    const roleLower = currentUser?.role?.toLowerCase();
-    if (roleLower === 'admin' || roleLower === 'super admin') return true;
-
-    // If loading or if no privileges configured in DB yet, show everything
-    if (loadingPrivileges || allowedMenus.size === 0) return true;
-
-    return allowedMenus.has(item.name.toLowerCase());
+    // While permissions are loading, show all items (prevents flash of empty sidebar)
+    if (!permissionsLoaded) return true;
+    const perm = permissionCodes[item.code] ?? 'Deny'; // missing = Deny (secure by default)
+    return perm !== 'Deny' && perm !== 'Hidden';
   });
 
 
@@ -186,9 +235,17 @@ export default function DashboardLayout() {
           {isSidebarOpen ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-800/30">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0">
-                  {currentUser?.name?.substring(0, 2).toUpperCase() || 'AD'}
-                </div>
+                {(currentUser?.avatar || avatar) ? (
+                  <img
+                    src={currentUser?.avatar || avatar}
+                    alt="Profile"
+                    className="w-10 h-10 rounded-full object-cover shadow-sm flex-shrink-0 border border-slate-700/50"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0">
+                    {currentUser?.name?.substring(0, 2).toUpperCase() || 'AD'}
+                  </div>
+                )}
                 <div className="flex-1 overflow-hidden">
                   <p className="font-bold text-sm text-slate-200 truncate">{currentUser?.name || 'Admin User'}</p>
                   <p className="text-xs text-slate-400 font-medium truncate">{currentUser?.bioId || 'BIO-0000'}</p>
@@ -221,9 +278,18 @@ export default function DashboardLayout() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0" title={currentUser?.name}>
-                {currentUser?.name?.substring(0, 2).toUpperCase() || 'AD'}
-              </div>
+              {(currentUser?.avatar || avatar) ? (
+                <img
+                  src={currentUser?.avatar || avatar}
+                  alt="Profile"
+                  className="w-10 h-10 rounded-full object-cover shadow-sm flex-shrink-0 border border-slate-700/50"
+                  title={currentUser?.name}
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0" title={currentUser?.name}>
+                  {currentUser?.name?.substring(0, 2).toUpperCase() || 'AD'}
+                </div>
+              )}
               <button
                 onClick={() => {
                   setEmployeeForPassword(currentUser);

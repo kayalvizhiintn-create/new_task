@@ -3,12 +3,18 @@ import { useStore } from '../store/useStore';
 import { cn } from '../utils/cn';
 import { Activity, Clock, AlertTriangle, X, Shield, Search, RefreshCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import SearchableSelect from '../components/SearchableSelect';
 
 import { taskService } from '../services/taskService';
 import { taskChangeStatusService } from '../services/taskChangeStatusService';
 import { enumService } from '../services/enumService';
 import { formatDateToDDMMYYYY } from '../utils/dateFormatter';
 
+const isNoProject = (val) => {
+  if (!val) return true;
+  const clean = val.toLowerCase().trim();
+  return clean === 'no' || clean === 'no project' || clean === 'noproject' || clean === 'no_project' || clean === 'none';
+};
 
 export default function StatusChange() {
   const { isDarkMode, statuses, currentUser, userPrivileges } = useStore();
@@ -80,6 +86,20 @@ export default function StatusChange() {
   const handleStatusChange = (taskId, newStatus) => {
     const task = tasks.find(t => t.id === taskId || t.taskId === taskId);
     if (task && (task.status === newStatus || task.statusName === newStatus)) return;
+
+    const isCompletedVal = String(newStatus).toLowerCase().trim() === 'completed' || String(newStatus) === '6';
+    if (isCompletedVal && task && task.dueDate) {
+      const dueDate = new Date(task.dueDate);
+      dueDate.setHours(23, 59, 59, 999);
+      if (dueDate < new Date()) {
+        Swal.fire({
+          title: 'Overdue Project',
+          text: 'This project/task has passed its due date and cannot be marked as Completed!',
+          icon: 'error'
+        });
+        return;
+      }
+    }
 
     setPendingUpdate({ taskId, newStatus });
     setModalOpen(true);
@@ -181,12 +201,16 @@ export default function StatusChange() {
     const category = (task.categoryName || task.category || '').toLowerCase();
     const assignedTo = (task.assignToName || task.assignedTo || '').toLowerCase();
     const status = (task.statusName || task.status || '').toLowerCase();
+    const project = (task.project || '').toLowerCase();
+    const dueDateFormatted = formatDateToDDMMYYYY(task.dueDate).toLowerCase();
 
     return taskUid.includes(query) ||
            taskDesc.includes(query) ||
            category.includes(query) ||
            assignedTo.includes(query) ||
-           status.includes(query);
+           status.includes(query) ||
+           project.includes(query) ||
+           dueDateFormatted.includes(query);
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => new Date(b.createdAt || Date.now()) - new Date(a.createdAt || Date.now()));
@@ -212,23 +236,23 @@ export default function StatusChange() {
           </h1>
           <p className={cn("mt-2 font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>Quickly update project statuses across the board.</p>
         </div>
-      </div>
 
-      {/* Searchbar */}
-      <div className={cn("p-4 rounded-2xl shadow-sm max-w-md",
-        isDarkMode ? "bg-slate-800/60 backdrop-blur-md" : "bg-white border border-slate-200"
-      )}>
-        <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
-          isDarkMode ? "bg-slate-900/50 focus-within:bg-slate-900" : "bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20"
+        {/* Searchbar */}
+        <div className={cn("p-2 rounded-2xl shadow-sm w-full md:w-72 shrink-0",
+          isDarkMode ? "bg-slate-800/60 backdrop-blur-md" : "bg-white border border-slate-200"
         )}>
-          <Search className="w-5 h-5 text-slate-400 shrink-0" />
-          <input
-            type="text"
-            placeholder="Search tasks by title, UID, category, status..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent border-none outline-none w-full text-sm font-medium placeholder:text-slate-400 dark:text-slate-100"
-          />
+          <div className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors",
+            isDarkMode ? "bg-slate-900/50 focus-within:bg-slate-900" : "bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20"
+          )}>
+            <Search className="w-4 h-4 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none outline-none w-full text-xs font-semibold placeholder:text-slate-400 dark:text-slate-100"
+            />
+          </div>
         </div>
       </div>
 
@@ -259,6 +283,13 @@ export default function StatusChange() {
                     <p className={cn("text-xs font-semibold mt-1 text-slate-500 dark:text-slate-400 whitespace-pre-wrap")}>
                       {task.taskDesc || task.title || 'No Description'}
                     </p>
+                    {task.project && !isNoProject(task.project) && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400">
+                          Proj: {task.project}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-5">
                     <span className={cn("font-bold", isDarkMode ? "text-slate-300" : "text-slate-700")}>{task.categoryName || task.category}</span>
@@ -278,24 +309,29 @@ export default function StatusChange() {
                     </div>
                   </td>
                   <td className="px-6 py-5 text-right">
-                    <select
+                    <SearchableSelect
                       value={task.statusName || task.status}
                       onChange={(e) => handleStatusChange(task.id || task.taskId, e.target.value)}
                       disabled={!canUpdateStatus}
-                      className={cn("appearance-none px-4 py-2 rounded-xl text-xs font-bold tracking-wide border outline-none transition-all shadow-sm focus:ring-2 focus:ring-blue-500/20", 
-                        canUpdateStatus ? "cursor-pointer" : "cursor-not-allowed opacity-75",
-                        getStatusColor(task.statusName || task.status)
-                      )}
-                    >
-                      {apiStatuses.length > 0 
+                      options={apiStatuses.length > 0 
                         ? apiStatuses.map(s => {
                             const val = typeof s === 'string' ? s : (s.statusName || s.name || s.value);
-                            const key = typeof s === 'string' ? s : (s.statusId || s.id || s.value || val);
-                            return <option key={key} value={val}>{val}</option>;
+                            return { value: val, label: val };
                           })
-                        : statuses.map(s => <option key={s} value={s}>{s}</option>)
+                        : [
+                            { value: "Created", label: "Created" },
+                            { value: "Open", label: "Open" },
+                            { value: "In Progress", label: "In Progress" },
+                            { value: "Closed", label: "Closed" }
+                          ]
                       }
-                    </select>
+                      isDarkMode={isDarkMode}
+                      className="w-36 ml-auto"
+                      triggerClassName={cn(
+                        "px-3 py-1.5 text-xs font-bold tracking-wide", 
+                        getStatusColor(task.statusName || task.status)
+                      )}
+                    />
                   </td>
                 </tr>
               )) : (

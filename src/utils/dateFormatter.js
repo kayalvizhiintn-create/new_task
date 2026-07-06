@@ -11,6 +11,7 @@
  */
 export const formatDateToDDMMYYYY = (dateVal, fallback = '') => {
   if (!dateVal) return fallback;
+  if (typeof dateVal === 'string' && dateVal.startsWith('0001-01-01')) return fallback;
 
   // Handle YYYY-MM-DD string format directly to prevent timezone shift
   if (typeof dateVal === 'string') {

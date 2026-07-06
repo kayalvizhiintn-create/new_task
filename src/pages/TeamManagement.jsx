@@ -4,6 +4,7 @@ import { cn } from '../utils/cn';
 import { Users, Plus, UserCircle, Crown, Trash2, AlertTriangle, X, Shield } from 'lucide-react';
 import { useSearchParams, Link } from 'react-router-dom';
 import DiscussionForum from '../components/DiscussionForum';
+import SearchableSelect from '../components/SearchableSelect';
 
 export default function TeamManagement() {
   const { isDarkMode, teams, employees, tasks, createTeam, deleteTeam, userPrivileges, currentUser } = useStore();
@@ -162,30 +163,30 @@ export default function TeamManagement() {
 
                 <div>
                   <label className={cn("block text-sm font-bold mb-2", isDarkMode ? "text-slate-300" : "text-slate-700")}>Select Project <span className="text-rose-500">*</span></label>
-                  <select 
+                  <SearchableSelect 
                     value={newTeamProject}
                     onChange={(e) => setNewTeamProject(e.target.value)}
-                    className={inputClasses}
-                  >
-                    <option value="">Select a project...</option>
-                    {tasks.map(t => (
-                      <option key={t.id} value={t.title}>{t.title} ({t.id})</option>
-                    ))}
-                  </select>
+                    options={tasks.map(t => ({
+                      value: t.title,
+                      label: `${t.title} (${t.id})`
+                    }))}
+                    placeholder="Select a project..."
+                    isDarkMode={isDarkMode}
+                  />
                 </div>
                 
                 <div>
                   <label className={labelClasses}>Team Lead</label>
-                  <select 
+                  <SearchableSelect 
                     value={newTeamLead}
                     onChange={(e) => setNewTeamLead(e.target.value)}
-                    className={cn(inputClasses, "appearance-none cursor-pointer")}
-                  >
-                    <option value="">Select Team Lead</option>
-                    {employees.map(emp => (
-                      <option key={`lead-${emp.id}`} value={emp.name}>{emp.name}</option>
-                    ))}
-                  </select>
+                    options={employees.map(emp => ({
+                      value: emp.name,
+                      label: emp.name
+                    }))}
+                    placeholder="Select Team Lead"
+                    isDarkMode={isDarkMode}
+                  />
                 </div>
 
                 <div>

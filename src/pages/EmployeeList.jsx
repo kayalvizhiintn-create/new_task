@@ -6,6 +6,7 @@ import { Search, MapPin, Edit, Trash2, Shield, Plus, LayoutGrid, List, Key, Refr
 import { employeeService } from '../services/employeeService';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import Swal from 'sweetalert2';
+import SecureComponent from '../components/SecureComponent';
 
 export default function EmployeeList() {
   const { isDarkMode, userPrivileges, currentUser } = useStore();
@@ -101,7 +102,7 @@ export default function EmployeeList() {
           <h1 className={cn("text-4xl font-extrabold tracking-tight", isDarkMode ? "text-white" : "text-slate-900")}>Team Directory</h1>
           <p className={cn("mt-2 font-medium", isDarkMode ? "text-slate-400" : "text-slate-500")}>Manage all corporate employees and their access roles.</p>
         </div>
-        {canCreateEmp && (
+        <SecureComponent code="addemployee.page">
           <div className="flex items-center gap-3">
             <Link 
               to="/employees/new"
@@ -110,7 +111,7 @@ export default function EmployeeList() {
               <Plus className="w-5 h-5" /> Add Employee
             </Link>
           </div>
-        )}
+        </SecureComponent>
       </div>
 
       <div className={cn("p-2 rounded-2xl flex flex-col md:flex-row gap-3 shadow-sm justify-between items-center",
@@ -194,7 +195,7 @@ export default function EmployeeList() {
                 </div>
 
                 <div className={cn("mt-auto pt-4 border-t flex justify-center gap-3 relative z-10", isDarkMode ? "border-slate-700/50" : "border-slate-100")}>
-                  {canUpdateEmp && (
+                  <SecureComponent code="employee.edit">
                     <Link 
                       to={`/employees/edit/${emp.id || emp.empId || emp._id || emp.employeeId}`} 
                       className={cn("flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-xs font-bold transition-all duration-200", 
@@ -203,20 +204,22 @@ export default function EmployeeList() {
                     >
                       <Edit className="w-3.5 h-3.5" /> Edit
                     </Link>
-                  )}
-                  <button 
-                    onClick={() => {
-                      setEmployeeForPassword(emp);
-                      setChangePasswordOpen(true);
-                    }}
-                    className={cn("flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-xs font-bold transition-all duration-200", 
-                      isDarkMode ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400" : "bg-amber-50 hover:bg-amber-100 text-amber-600"
-                    )}
-                    title="Change Password"
-                  >
-                    <Key className="w-3.5 h-3.5" /> Password
-                  </button>
-                  {canDeleteEmp && (
+                  </SecureComponent>
+                  <SecureComponent code="employee.password.reset">
+                    <button 
+                      onClick={() => {
+                        setEmployeeForPassword(emp);
+                        setChangePasswordOpen(true);
+                      }}
+                      className={cn("flex-1 py-2 flex justify-center items-center gap-1.5 rounded-xl text-xs font-bold transition-all duration-200", 
+                        isDarkMode ? "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400" : "bg-amber-50 hover:bg-amber-100 text-amber-600"
+                      )}
+                      title="Change Password"
+                    >
+                      <Key className="w-3.5 h-3.5" /> Password
+                    </button>
+                  </SecureComponent>
+                  <SecureComponent code="employee.delete">
                     <button 
                       onClick={() => {
                         const empName = emp.name || emp.empName || emp.employeeName || 'this employee';
@@ -264,7 +267,7 @@ export default function EmployeeList() {
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Delete
                     </button>
-                  )}
+                  </SecureComponent>
                 </div>
               </div>
             ))}
@@ -327,22 +330,24 @@ export default function EmployeeList() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <button 
-                            onClick={() => {
-                              setEmployeeForPassword(emp);
-                              setChangePasswordOpen(true);
-                            }}
-                            className={cn("p-2 rounded-xl transition-all duration-200 mx-auto block", 
-                              isDarkMode ? "hover:bg-amber-500/20 text-amber-400" : "hover:bg-amber-50 text-amber-600"
-                            )}
-                            title="Change Password"
-                          >
-                            <Key className="w-4 h-4" />
-                          </button>
+                          <SecureComponent code="employee.password.reset">
+                            <button 
+                              onClick={() => {
+                                setEmployeeForPassword(emp);
+                                setChangePasswordOpen(true);
+                              }}
+                              className={cn("p-2 rounded-xl transition-all duration-200 mx-auto block", 
+                                isDarkMode ? "hover:bg-amber-500/20 text-amber-400" : "hover:bg-amber-50 text-amber-600"
+                              )}
+                              title="Change Password"
+                            >
+                              <Key className="w-4 h-4" />
+                            </button>
+                          </SecureComponent>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {canUpdateEmp && (
+                            <SecureComponent code="employee.edit">
                               <Link 
                                 to={`/employees/edit/${empId}`} 
                                 className={cn("p-2 rounded-xl transition-all duration-200", 
@@ -352,8 +357,8 @@ export default function EmployeeList() {
                               >
                                 <Edit className="w-4 h-4" />
                               </Link>
-                            )}
-                            {canDeleteEmp && (
+                            </SecureComponent>
+                            <SecureComponent code="employee.delete">
                               <button 
                                 onClick={() => {
                                   Swal.fire({
@@ -400,7 +405,7 @@ export default function EmployeeList() {
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
-                            )}
+                            </SecureComponent>
                           </div>
                         </td>
                       </tr>
